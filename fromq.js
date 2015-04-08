@@ -46,9 +46,9 @@
             //console.log(extValues);
             return extValues;
         },
-        extValueCallClause = function (/*Function*/fnCaller, /*Function*/clause, /*Array*/params, _self) {
+        extValueCallClause = function (/*Function*/fnCallee, /*Function*/clause, /*Array*/params, _self) {
             //console.log(arguments);
-            var extValues = getCallerExtValue(fnCaller.arguments, clause);
+            var extValues = getCallerExtValue(fnCallee.arguments, clause);
             return clause.apply(_self, params.concat(extValues));
         },
         lambda = function (/*String*/condition, /*Boolean*/isClosure) {
@@ -150,11 +150,11 @@
             clause = paramConvert(clause, null, function () {
                 return true
             });
-            var newArray = [], it;
+            var newArray = [], it,callee = arguments.callee;
             // The clause was passed in as a Method that return a Boolean
             for (var i = 0; i < this.items.length; i++) {
                 //it = clause(this.items[index], index);
-                it = extValueCallClause(this.where, clause, [this.items[i], i], null);
+                it = extValueCallClause(callee, clause, [this.items[i], i], null);
                 if (it === undefined) {
                     err("where clause function must return  value!");
                 }
@@ -190,9 +190,9 @@
                 err("select=>clause must be function.");
 
             var newArray = [];
-            var _self = this;
+            var callee = arguments.callee;
             this.each(function (item, index) {
-                item = extValueCallClause(_self.select, clause, [item, index]);//clause(item,index);
+                item = extValueCallClause(callee, clause, [item, index]);//clause(item,index);
                 if (item)newArray.push(item);//newArray[newArray.length] = item;
             });
             return new fromq(newArray);
@@ -231,14 +231,14 @@
                 return item;
             };
 
-            var self = this;
+            var callee = arguments.callee;
             return new fromq(
                 tempArray.sort(customCompare == false ? function (a, b) {
-                    var x = extValueCallClause(self.orderBy, clause, [a]);//clause(a);
-                    var y = extValueCallClause(self.orderBy, clause, [b]);//clause(b);
+                    var x = extValueCallClause(callee, clause, [a]);//clause(a);
+                    var y = extValueCallClause(callee, clause, [b]);//clause(b);
                     return ((x < y) ? -1 : ((x > y) ? 1 : 0));
                 } : function (a, b) {
-                    return extValueCallClause(self.orderBy, clause, [a, b]);
+                    return extValueCallClause(callee, clause, [a, b]);
                 })//clause
             );
         },
@@ -276,14 +276,14 @@
             clause = clause ? clause : function (item) {
                 return item;
             };
-            var self = this;
+            var callee = arguments.callee;
             return new fromq(
                 tempArray.sort(customCompare == false ? function (a, b) {
-                    var x = extValueCallClause(self.orderByDescending, clause, [b]);//clause(b);
-                    var y = extValueCallClause(self.orderByDescending, clause, [a]);//clause(a);
+                    var x = extValueCallClause(callee, clause, [b]);//clause(b);
+                    var y = extValueCallClause(callee, clause, [a]);//clause(a);
                     return ((x < y) ? -1 : ((x > y) ? 1 : 0));
                 } : function (a, b) {
-                    return extValueCallClause(self.orderByDescending, clause, [a, b])
+                    return extValueCallClause(callee, clause, [a, b])
                 })//clause)
             );
         },
@@ -324,9 +324,9 @@
             //    return clause;
             //})(clause);
 
-            var r = [];
+            var r = [],callee = arguments.callee;
             this.each(function (item, index) {
-                r = r.concat(extValueCallClause(this.selectMany, clause, [item, index]));//clause(item, index));
+                r = r.concat(extValueCallClause(callee, clause, [item, index]));//clause(item, index));
             });
             return new fromq(r);
 
@@ -347,7 +347,7 @@
             else
             //return this.where(clause).items.length;
             //return this.where.apply(null,[clause].concat(getCallerExtValue(this.count))).items.length;
-                return extValueCallClause(this.count, this.where, [clause], this).items.length;
+                return extValueCallClause(arguments.callee, this.where, [clause], this).items.length;
         },
         //example:
         // distinct(function(item){return item});
@@ -384,7 +384,7 @@
         // any("o=>o");
 
         any: function (/*Function|Lambda*/clause) {
-            return extValueCallClause(this.any, this.where, [clause]).count > 0;
+            return extValueCallClause(arguments.callee, this.where, [clause], this).count > 0;
             //return this.where.apply(null,[clause].concat(getCallerExtValue(this.any))).count() > 0;
         },
         //example:
@@ -395,7 +395,7 @@
         all: function (/*Function|Lambda*/clause) {
             //return this.where(clause).count() !== this.count();
             //return this.where.apply(null,[clause].concat(getCallerExtValue(this.any))).count() !=this.count();
-            return extValueCallClause(this.all, this.where, [clause], this) !== this.count();
+            return extValueCallClause(arguments.callee, this.where, [clause], this) !== this.count();
         },
         reverse: function () {
             var retVal = [];
@@ -412,7 +412,8 @@
         first: function (/*Function|Lambda*/clause) {
             if (clause != null) {
                 //return this.where(clause).first();
-                return extValueCallClause(this.first, this.where, [clause], this).count > 0;
+                var callee = arguments.callee;
+                return extValueCallClause(callee, this.where, [clause], this).first();
             }
             else {
                 // If no clause was specified, then return the First element in the Array
@@ -431,7 +432,7 @@
         last: function (/*Function|Lambda*/clause) {
             if (clause != null) {
                 //return this.where(clause).last();
-                return extValueCallClause(this.last, this.where, [clause], this).last();
+                return extValueCallClause(arguments.callee, this.where, [clause], this).last();
             }
             else {
                 // If no clause was specified, then return the First element in the Array
@@ -560,10 +561,10 @@
             return defaultValue;
         },
         firstOrDefault: function (defaultValue) {
-            return this.First() || defaultValue;
+            return this.first() || defaultValue;
         },
         lastOrDefault: function (defaultValue) {
-            return this.Last() || defaultValue;
+            return this.last() || defaultValue;
         },
 
         //example:
@@ -575,9 +576,10 @@
         each: function (/*function|Lambda*/callback) {
             callback = _lambdaUtils.convert(callback, true);
 
+            var callee = arguments.callee;
             for (var i = 0; i < this.items.length; i++) {
                 //if (callback(this.items[i], i))break;
-                if (extValueCallClause(this.each, callback, [this.items[i], i]))break;
+                if (extValueCallClause(callee, callback, [this.items[i], i]))break;
                 //callback(this.items[i], i);
             }
             return new fromq(this.items);
@@ -759,7 +761,7 @@
                 if (isString(value) && isFloat(item))//process string value is float.
                     return parseFloat(item);
             };
-            return extValueCallClause(this.max, this.orderBy, [clause], this).first();
+            return extValueCallClause(this.min, this.orderBy, [clause], this).first();
             //return this.orderBy(clause).first();
         }
         ,
@@ -788,10 +790,10 @@
                 return clause;
             })(clause);
             var ret = 0;
-            var self = this;
+            var callee = arguments.callee;
             this.each(clause !== undefined ? function (item, index) {
                     //ret += clause(item);
-                    ret += extValueCallClause(self.sum, clause, [item, index]);//support sum function extend args
+                    ret += extValueCallClause(callee, clause, [item, index]);//support sum function extend args
                 } :
                     function (item) {
                         if (isString(item) && isFloat(item))//process string value is float.
@@ -805,8 +807,9 @@
         ,
         //like sum function.
         avg: function (/*Function|Lambda|String field*/clause) {
+            //var callee = arguments.callee;
             return this.isEmpty() ? Number.NaN :
-            extValueCallClause(this.avg, this.sum, [clause], this) / this.count();//this.sum(clause) / this.count();
+            extValueCallClause(arguments.callee, this.sum, [clause], this) / this.count();//this.sum(clause) / this.count();
         }
         ,
         isEmpty: function () {
@@ -820,7 +823,8 @@
         // |   var n='3';fromq("1,2,3,4").contains("(o,i,n)=>o<n",n);
         contains: function (/*Function|Lambda|value*/clause) {
             //return this.indexOf(clause) !== -1;
-            return extValueCallClause(this.contains, this.indexOf, [clause], this) !== -1;
+            var callee = arguments.callee;
+            return extValueCallClause(callee, this.indexOf, [clause], this) !== -1;
         },
         //example:
         // |  fromq("1,2,3,4,5").indexOf("o=>o==='5'");
@@ -836,10 +840,10 @@
                 }
             }
             var ret = -1;
-            var _self = this;
+            var callee = arguments.callee;
             this.each(function (item, index) {
                 //if (clause(item, index)) {
-                if (extValueCallClause(_self.indexOf, clause, [item, index])) {
+                if (extValueCallClause(callee, clause, [item, index])) {
                     ret = index;
                     return true;
                 }
@@ -851,31 +855,40 @@
         },
         //example:
         // |  fromq("1,2,3,4").join(fromq("2,3"),"(a,b)=>a-b==0","(a,b)=>{a:a,b:b}");
-        leftJoin: function (/*Array|fromq*/second, /*Function|lambda*/comparer, /*Function|Lambda*/selector) {
-            var a1q = fromq(this), a2q = fromq(second);
-            var ret = [];
+        leftJoin: function (/*Array|fromq*/second, /*Function|lambda|String fields*/comparer, /*Function|Lambda*/selector) {
+            var leftq = fromq(this), rightq = fromq(second);
 
             selector = paramConvert(selector, null, function (a, b) {
                 return {"left": a, "right": b};
             });
 
-            comparer = paramConvert(comparer, null, function (a, b) {
+            comparer = paramConvert(comparer, function (fieldsq) {
+                //var ret = ["(a,b)=>(function(a,b){console.log(arguments);return "];
+                var ret = ["(a,b)=>"];
+                fieldsq.each(function (name) {
+                    ret.push("a['" + name + "']==b['" + name + "']");
+                    ret.push("&&");
+                });
+                ret.length = ret.length - 1;
+                //ret.push("})(a,b)");
+                return ret.join("");
+            }, function (a, b) {
                 return a.toString() === b.toString();
             });
-            var self = this;
-            a1q.each(function (leftItem) {
 
-                var value = a2q.where(function (rightItem) {
-                    return extValueCallClause(self.leftJoin, comparer, [leftItem, rightItem]);
-                    //return comparer(leftItem, rightItem);
-                }).first();
-                //if (value) {
-                //var newItem = selector(leftItem, value);
-                var newItem = extValueCallClause(self.leftJoin, selector, [leftItem, value]);
-                if (newItem) ret.push(newItem);
-                //}
-            });
-            return new fromq(ret);
+            var callee = arguments.callee;
+            return leftq.select(
+                function (leftItem) {
+                    var value = rightq.first(function (rightItem) {
+                        //console.log(leftItem,rightItem);
+                        return extValueCallClause(callee, comparer, [leftItem, rightItem]);
+                        //return comparer(leftItem, rightItem);
+                    });
+                    //if (value) {
+                    //return selector(leftItem, value||{});
+                    return extValueCallClause(callee, selector, [leftItem, value || {}]);
+                    //}
+                });
         },
         //example:
         //|  fromq(/ab*/g).match("abb switch,i like abb").each("o=>console.log(o)");
