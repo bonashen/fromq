@@ -33,7 +33,9 @@ fromq的字符串的默认分隔符为"**,**".
 ####2.1 常用操作
 #####each | forEach
 调用格式：each(/\*function|Lambda\*/callback=function(**item,/\*Number\*/index**){return true;})
+
 功能描述：遍历所有的数组元素，直到callback返回值非null | undefined终止.
+
 返回结果：fromq
 调用样例:
 ```javascript
@@ -45,6 +47,7 @@ fromq([1, 2, 3]).each("(o, i,n,log) =>log('index at:', i, '\tvalue is:', o,'\t'+
 ```
 #####select | map
 调用格式：select(/\*Function|Lambda|String fields\*/clause=function(**item,/\*Number\*/index**){return {};})
+
 功能描述：遍历所有的数组元素，将clause()返回值作为数组元素重新组织为新数组并返回新的fromq.
 返回结果：fromq
 调用样例:
@@ -70,6 +73,7 @@ fromq([1,2,3,4,5,6])
 ```
 #####where | filter
 调用格式：where(/\*Function|Lambda\*/clause=function(**item,/\*Number\*/index**){})
+
 功能描述：遍历所有的数据元素，将clause()返回值为true的数组元素重新组织为新数组并返回新的fromq.
 返回结果：fromq
 调用样例:
@@ -91,6 +95,7 @@ fromq([1,2,3,4,5,6])
 #####concat
 调用格式：concat(/\*Array|formq\*/it)
 功能描述：将原数组元素与需连接数组**it**或者**it.toArray()**进行数组连接操作并返回新的fromq，对原数组没有影响.
+
 返回结果：fromq
 调用样例:
 ```javascript
@@ -116,6 +121,7 @@ fromq([1,2,3])
 ```
 ####distinct
 调用格式：distinct(/\*Function|Lambda|String field\*/clause=function(item,index){}, /\*boolean\*/distinctValue)
+
 功能描述：遍历数组，依据clause()返回值作为数组元素唯一性判断，过滤重复项元素，重新组织并返回fromq.
 - 若clause为空时，以数组元素仩作为唯一性判断依据。
 - 若distinctValue为true时，clause()返回值作为新fromq的数组元素。
@@ -131,6 +137,7 @@ fromq([1,2,3])
 ####2.2 数组及元素检测
 #####isEmpty
 调用格式：isEmpty();
+
 功能描述：检测数组是否为空，若空为true。
 返回结果：false|true
 调用样例:
@@ -141,6 +148,7 @@ fromq([1,2,3])
 ```
 #####all
 调用格式：all(clause=function(**item,/\*Number\*/index**){});
+
 功能描述：检测数组所有元素是否满足clause条件，都满足为true。
 返回结果：false|true
 调用样例:
@@ -149,6 +157,7 @@ fromq([1,2,3])
 ```
 #####any
 调用格式：all(clause=function(**item,/\*Number\*/index**){});
+
 功能描述：检测数组是否有满足clause条件的元素，有为true。
 返回结果：false|true
 调用样例:
@@ -157,6 +166,7 @@ fromq([1,2,3])
 ```
 #####contains
 调用格式：contains(/\*Function|Lambda|value\*/clause=function(**item,/\*Number\*/index**){});
+
 功能描述：检测数组是否有满足clause的元素，有为true
 返回结果：false|true
 调用样例:
@@ -166,6 +176,7 @@ fromq([1,2,3])
 ####2.3 定位数组元素
 #####indexOf
 调用格式：indexOf(/\*Function|Lambda|value\*/clause=function(**item,/\*Number\*/index**){});
+
 功能描述：检索数组满足clause条件元素的位置，没有则返回-1.
 返回结果：Number
 调用样例:
@@ -177,6 +188,7 @@ fromq([1,2,3])
 ```
 #####first | head
 调用格式：first(/\*Function|Lambda\*/clause=function(**item,/\*Number\*/index**){});
+
 功能描述：检索数组满足clause条件第一位元素，没有则返回null.
 返回结果：object|null
 调用样例:
@@ -187,6 +199,7 @@ fromq([1,2,3])
 ```
 #####firstOrDefault
 调用格式：firstOrDefault(/\*Function|Lambda\*/clause=function(**item,/\*Number\*/index**){},defaultValue);
+
 功能描述：检索数组满足clause条件第一位元素，没有则返回defaultValue.
 返回结果：object|defaultValue
 调用样例:
@@ -197,6 +210,7 @@ fromq([1,2,3])
 ```
 #####last | tail
 调用格式：last(/\*Function|Lambda\*/clause=function(**item,/\*Number\*/index**){});
+
 功能描述：检索数组满足clause条件末位元素，没有则返回null.
 返回结果：object|null
 调用样例:
@@ -207,6 +221,7 @@ fromq([1,2,3])
 ```
 #####lastOrDefault
 调用格式：lastOrDefault(/\*Function|Lambda\*/clause=function(**item,/\*Number\*/index**){},defaultValue);
+
 功能描述：检索数组满足clause条件末位元素，没有则返回defaultValue.
 返回结果：object|defaultValue
 调用样例:
@@ -217,6 +232,7 @@ fromq([1,2,3]).lastOrDefault("(o,i,n)=>o>n.value",4,{value:4});
 ```
 #####elementAt
 调用格式：elementAt(/\*Number\*/index);
+
 功能描述：取位于index处的数组元素.
 返回结果：object
 调用样例:
@@ -225,6 +241,7 @@ fromq([1,2,3]).elementAt(2);
 ```
 #####elementAtOrDefault
 调用格式：elementAtOrDefault(/\*Number\*/index,defaultValue);
+
 功能描述：取位于index处的数组元素,如果index越界返回defaultValue.
 返回结果：object|defaultValue
 调用样例:
@@ -233,6 +250,7 @@ fromq([1,2,3]).elementAtOrDefault(3,4);
 ```
 #####take
 调用格式：take(/\*number\*/top, /\*function|Lambda\*/clause=function(item,index){});
+
 功能描述：取前top数量的元素,并依据clause()返回值过滤后，重新组织并返回fromq.
 返回结果：fromq
 调用样例:
@@ -244,6 +262,7 @@ fromq([1,2,3]).take(2,"(o,i,n)=>o<n.value",{value:4});
 ```
 #####skip
 调用格式：skip(/\*number\*/count, /\*function|Lambda\*/clause=function(item,index){});
+
 功能描述：从count处开始取剩余的元素，并依据clause()返回值过滤后，重新组织并返回fromq.
 返回结果：fromq
 调用样例:
@@ -255,6 +274,7 @@ fromq([1,2,3]).skip(2,"(o,i,n)=>o<n.value",{value:4});
 ```
 #####takeRange
 调用格式：takeRange(/\*number\*/start,/\*number\*/end, /\*function|Lambda\*/clause=function(item,index){});
+
 功能描述：取start至end处的数组元素，并依据clause()返回值过滤后，重新组织并返回fromq.
 返回结果：fromq
 调用样例:
@@ -269,6 +289,7 @@ fromq([1,2,3]).takeRange(2,"(o,i,n)=>o<n.value",{value:4});
 ####2.4 数组统计
 #####max
 调用格式：max(/\*Function|Lambda|String field\*/clause=function(item){});
+
 功能描述：指定列或clause()返回值的最大数的数组元素.
 返回结果：object
 调用样例:
@@ -285,6 +306,7 @@ console.log("max:\t",fromq([1,2,3])
 ```
 #####min
 调用格式：min(/\*Function|Lambda|String field\*/clause=function(item){});
+
 功能描述：指定列或clause()返回值的最小数的数组元素.
 返回结果：object
 调用样例:
@@ -301,6 +323,7 @@ console.log("min:\t",fromq([1,2,3])
 ```
 #####sum | aggregate
 调用格式：sum(/\*Function|Lambda|String fields\*/clause=function(item,/\*Number\*/index));
+
 功能描述：统计指定列或clause()返回值的和.
 返回结果：Number|Float|NaN
 调用样例:
@@ -317,6 +340,7 @@ console.log("sum:\t",fromq([1,2,3])
 ```
 #####avg | average
 调用格式：avg(/\*Function|Lambda|String fields\*/clause=function(item,/\*Number\*/index));
+
 功能描述：统计指定列或clause()返回值的平均数.
 返回结果：Number|Float|NaN
 调用样例:
@@ -334,6 +358,7 @@ console.log("avg:\t",fromq([1,2,3])
 ####2.5 排序与分组
 #####orderBy
 调用格式：orderBy(/\*Function|Lambda|String fields\*/clause=function(item){},customCompar=false);
+
 功能描述：依据各数组元素的clause(item)返回值对数组元素进行升序排序。若customCompare为true,侧依据clause(a,b)返回值-1，0，1进行数组元素升序排序。
 返回结果：fromq
 调用样例:
@@ -352,6 +377,7 @@ fromq([1,2,3])
 ```
 #####orderByDescending
 调用格式：orderByDescending(/\*Function|Lambda|String fields\*/clause=function(item){},customCompare=false);
+
 功能描述：依据各数组元素的clause(item)返回值对数组元素进行降序排序。若customCompare为true,侧依据clause(a,b)返回值-1，0，1进行数组元素降序排序。
 返回结果：fromq
 调用样例:
@@ -370,6 +396,7 @@ fromq([1,2,3])
 ```
 #####groupBy
 调用格式：groupBy(/\*Function|Lambda|String fields\*/clause=function(item,/\*Number\*/index){});
+
 功能描述：依据各数组元素的clause(item,index)返回值对数组元素进行分组。clause(item,index)返回值可以是任何值，若为数组，则进行多层分组。
 返回结果：grouper
 调用样例:
@@ -394,6 +421,7 @@ fromq([1,2,3,2,3,3])
 ####2.6 集合运算
 ####union
 调用格式：union(/\*Array|fromq\*/second, /\*Function|lambda|String FieldName\*/clause=function(item,index){return distinct});
+
 功能描述：依赖clause()返回值作为唯一值，合并两个数组并过滤相同项。
 返回结果：fromq
 调用样例:
@@ -422,6 +450,7 @@ fromq(People1)
 ```
 ####intersect
 调用格式：intersect(/\*Array|fromq\*/second, /\*Function|lambda|String FieldName\*/clause=function(item,index){return distinct});
+
 功能描述：依赖clause()返回值作为唯一值，过滤重复项后，检索两个数组相同项（相交），重新组织为fromq。
 返回结果：fromq
 调用样例:
@@ -450,6 +479,7 @@ fromq(People1)
 ```
 ####except
 调用格式：except(/\*Array|fromq\*/second, /\*Function|lambda|String FieldName\*/clause=function(item,index){return distinct});
+
 功能描述：依赖clause()返回值作为唯一值，过滤重复项后，检索两个数组不相同项（与非），重新组织为fromq。
 返回结果：fromq
 调用样例:
@@ -478,6 +508,7 @@ fromq(People1)
 ```
 ####join | leftJoin
 调用格式：join(/\*Array|fromq\*/second, /\*Function|lambda|String fields\*/comparer=function(a,b){return true}, /\*Function|Lambda\*/selector=function(a,b){return {};});
+
 功能描述：依赖comparer()返回值判断a,b是否相等，若相等则将selector()的返回值作为数组元素，重新组织为fromq。
 返回结果：fromq
 调用样例:
@@ -516,6 +547,7 @@ fromq(People1)
 分组对象是fromq().groupBy函数的返回结果集。他提供了对分组后的对象进行数组元素的遍历、选择，通过选择功能select你可以实现分组的统计功能。
 ####each
 调用格式：each(/\*Function|Lambda\*/clause=function(/\*fromq\*/group,/\*fromq\*/items){});
+
 功能描述：遍历分组对象的数组元素，若clause()返回非null | undefined时结束遍历。
 返回结果：grouper
 调用样例:
@@ -539,6 +571,7 @@ fromq([1,2,3,2,3,3])
 ```
 ####select
 调用格式：select(/\*Function|Lambda\*/clause=function(/\*fromq\*/group,/\*fromq\*/items){});
+
 功能描述：遍历分组对象的数组元素，重新组织clause()返回值为fromq对象。
 返回结果：fromq
 调用样例:
@@ -552,6 +585,7 @@ fromq([1, 2, 3, 2, 3, 3])
 ```
 ####getData
 调用格式：getData();
+
 功能描述：获取分组对象的数据。
 返回结果：object
 调用样例:
@@ -565,6 +599,7 @@ console.log(
 fromq可以进行正则表达式的匹配操作，主要有两个函数，fromq(RegExp)和match(str)。具体使用详细如下说明。
 ####fromq
 调用格式：fromq(/\*RegExp\*/it,/\*String\*/str);
+
 功能描述：使用it对str进行正则表达式匹配，组织匹配结果为fromq对象。
 返回结果：fromq
 调用样例:
@@ -574,6 +609,7 @@ fromq(/ab*/g,"abb switch,i like abb").
 ```
 ####match
 调用格式：match(/\*String\*/str);
+
 功能描述：使用fromq对象创建时的it值对str进行正则表达式匹配，组织匹配结果为fromq对象。
 返回结果：fromq
 调用样例:
@@ -584,6 +620,7 @@ fromq(/ab*/g).match("abb switch,i like abb").
 ###5.Lambda使用
 ####fromq
 调用格式：fromq(/\*String\*/it,/\*Boolean\*/isClosure);
+
 功能描述：fromq可以将符合Lambda规范的字符串编译为匿名函数。
 返回结果：Function
 调用样例:
@@ -594,6 +631,7 @@ fromq("o=>console.log('o')",true); //带有闭包函数体
 ###5.其他功能
 ####range
 调用格式：range(/\*Number\*/start, /\*Number\*/end, /\*Number\*/step);
+
 功能描述：按setp步长生成从start到end的数组元素并返回fromq。
 - 若仅有start，则生成0-start个数组元素
 - 若仅缺step,则以1为步长
