@@ -666,7 +666,7 @@ fromq(/ab*/g).match("abb switch,i like abb").
 fromq("o=>console.log('o')");
 fromq("o=>console.log('o')",true); //带有闭包函数体
 ```
-###5.其他功能
+###6.其他功能
 ####range
 调用格式：range(/\*Number\*/start, /\*Number\*/end, /\*Number\*/step);
 
@@ -692,7 +692,7 @@ fromq
         .each('o=>console.log(o)');
 ```
 
-###6.调用参数压入
+###7.调用参数压入
 所谓调用参数压入（我自己的理解），是指当函数被调用时由javascript引擎根据实际参数压入参数堆栈。这是javascript的灵活特性之一。如何将这种灵活特性应用到lambda表达式？
 
 例如：where语句调用时的例子
