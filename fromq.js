@@ -41,7 +41,7 @@
             var extCount = callParams.length - defNames.length;
             var extValues = [];
             if (extCount) {
-                extValues = Array.prototype.slice.call(args, extCount);
+                extValues = Array.prototype.slice.call(args, defNames.length);
             }
             //console.log(extValues);
             return extValues;
@@ -91,6 +91,29 @@
                 if (ret === null)ret = it;
                 return ret;
             }
+        },
+        range = function (start, end, step) {
+            switch (arguments.length) {
+                case 1:
+                    end = start;
+                    start = 0;
+                    step = 1;
+                    break;
+                case 2:
+                    step = (end > start ? 1 : -1);
+                    break;
+            }
+            if (step < 0) {
+                var value = start;
+                start = end;
+                end = value;
+            }
+            var ret = [];
+            for (var i = start; i < end; i += step) {
+                ret.push(i);
+                //ret[ret.length]=i;
+            }
+            return new fromq(ret);
         };
     //example
     // |   paraConvert(clause,function(fieldsq){return ""},function(){return;});
@@ -106,10 +129,10 @@
         return clause;
     };
 
-    var fromq = function (/*Array|String|Lambda*/it, /*String*/splitChar) {
+    var fromq = function (/*Array|String|Lambda|RegExp*/it, /*String*/splitChar) {
         //for lambda
         if (_lambdaUtils.isLambda(it))
-            return _lambdaUtils.compile(it);
+            return _lambdaUtils.compile(it,arguments[1]||false);
         //for String :"1,2,3,4"
         if (isString(it))
             return new fromq.fn.init(it.split(splitChar || ","));
@@ -137,6 +160,8 @@
             this.regexp = it;
         },
 
+        version:'20150409/01',
+
         toArray: function () {
             return this.items;
         },
@@ -150,7 +175,7 @@
             clause = paramConvert(clause, null, function () {
                 return true
             });
-            var newArray = [], it,callee = arguments.callee;
+            var newArray = [], it, callee = arguments.callee;
             // The clause was passed in as a Method that return a Boolean
             for (var i = 0; i < this.items.length; i++) {
                 //it = clause(this.items[index], index);
@@ -324,7 +349,7 @@
             //    return clause;
             //})(clause);
 
-            var r = [],callee = arguments.callee;
+            var r = [], callee = arguments.callee;
             this.each(function (item, index) {
                 r = r.concat(extValueCallClause(callee, clause, [item, index]));//clause(item, index));
             });
@@ -384,18 +409,27 @@
         // any("o=>o");
 
         any: function (/*Function|Lambda*/clause) {
-            return extValueCallClause(arguments.callee, this.where, [clause], this).count > 0;
-            //return this.where.apply(null,[clause].concat(getCallerExtValue(this.any))).count() > 0;
+            clause = _lambdaUtils.convert(clause);
+            var callee = arguments.callee,ret=true;
+            this.each(function(item,index){
+                ret = extValueCallClause(callee,clause , [item,index]);
+                return ret;
+            });
+            return ret;
         },
         //example:
         // like where
         // all(function(item){return true});
-        // all("o=>o");
+        // all("o=>o<2");
 
         all: function (/*Function|Lambda*/clause) {
-            //return this.where(clause).count() !== this.count();
-            //return this.where.apply(null,[clause].concat(getCallerExtValue(this.any))).count() !=this.count();
-            return extValueCallClause(arguments.callee, this.where, [clause], this) !== this.count();
+            clause = _lambdaUtils.convert(clause);
+            var callee = arguments.callee,ret=false;
+            this.each(function(item,index){
+                ret = !extValueCallClause(callee,clause , [item,index]);
+                return ret;
+            });
+            return !ret;
         },
         reverse: function () {
             var retVal = [];
@@ -485,28 +519,23 @@
                 })(clause);
             }
 
-            var leftq = extValueCallClause(this.intersect, this.distinct, [clause], this);
-            //var leftq = this.distinct(clause);
+            var callee = arguments.callee;
+
+            var leftq = extValueCallClause(callee, this.distinct, [clause], this);
             var result = [], map = {};
+            var rightq = extValueCallClause(callee,this.distinct,[clause,true],fromq(second));
 
-            //fromq(second).
-            //    distinct(clause, true).each(function (item) {
-            //        map[item] = true;
-            //    });
-
-            var secq = fromq(second);
-            extValueCallClause(this.intersect, this.distinct, [clause], secq).each(function (item) {
+            rightq.each(function (item) {
                 map[item] = true;
             });
 
             leftq.each(
                 function (item) {
-                    //if (map[clause(item)])result.push(item);
-                    if (map[extValueCallClause(this.intersect, clause, [item])])result.push(item);
+                    if (map[extValueCallClause(callee, clause, [item])])result.push(item);
                 }
             );
             delete map;
-            return new fromq(result);
+            return fromq(result);
         },
         //description:
         //      与非,取两个数组不相交的值
@@ -517,6 +546,8 @@
 
         except: function (/*Array|fromq*/second, /*Function|lambda|String FieldName*/clause) {
             clause = _lambdaUtils.convert(clause);
+
+            var callee = arguments.callee;
 
             if (isString(clause)) {
                 clause = (function (clause) {
@@ -530,19 +561,19 @@
 
             //var _union = this.union(second, clause),
             //    _intersect = this.intersect(second, clause);
-            var _union = extValueCallClause(this.except, this.union, [second, clause], this),
-                _intersect = extValueCallClause(this.except, this.intersect, [second, clause], this);
+            var unionq = extValueCallClause(callee, this.union, [second, clause], this),
+                intersectq = extValueCallClause(callee, this.intersect, [second, clause], this);
 
             var result = [], map = {};
 
-            extValueCallClause(this.except, this.distinct, [clause, true], this).
-                //_intersect.distinct(clause, true).
+            extValueCallClause(callee, this.distinct, [clause, true], intersectq).
+            //    intersectq.distinct(clause, true).
                 each(function (item) {
                     map[item] = true;
                 });
-            _union.each(
+            unionq.each(
                 function (item) {
-                    if (map[clause(item)] !== true)result.push(item);
+                    if (map[extValueCallClause(callee,clause,[item])] !== true)result.push(item);
                 }
             );
             delete map;
@@ -596,7 +627,7 @@
         //3,4
         //example2:
         // var data =[{name:"bona shen",age:38},{name:"kerry",age:5},{name:"peter",age:11}];
-        // var _=_from;
+        // var _=fromq;
         // _(data).takeRange(3,4,_("a=>a.name.indexOf('e')")).toArray().join(",");
         takeRange: function (/*int*/start, /*int*/ end, /*function|Lambda*/clause) {
             clause = _lambdaUtils.convert(clause);
@@ -666,12 +697,12 @@
 
             var grouper = {}, itemsLabel = "_items";
 
-            var self = this;
+            var callee = arguments.callee;
 
             this.each(
                 function (item, index) {
                     //var gLabel = clause(item, index);
-                    var gLabel = extValueCallClause(self.groupBy, clause, [item, index]);
+                    var gLabel = extValueCallClause(callee, clause, [item, index]);
                     var root = grouper, _prior;
                     if (isArray(gLabel)) {
                         fromq(gLabel).each(function (label) {
@@ -906,29 +937,7 @@
         // |  range(10).echo("o=>console.log(o)");
         // |  range(0,10).echo("o=>console.log(o)");
         // |  range(0,10,2).echo("o=>console.log(o)");
-        range: function (start, end, step) {
-            switch (arguments.length) {
-                case 1:
-                    end = start;
-                    start = 0;
-                    step = 1;
-                    break;
-                case 2:
-                    step = (end > start ? 1 : -1);
-                    break;
-            }
-            if (step < 0) {
-                var value = start;
-                start = end;
-                end = value;
-            }
-            var ret = [];
-            for (var i = start; i < end; i += step) {
-                ret.push(i);
-                //ret[ret.length]=i;
-            }
-            return new fromq(ret);
-        }
+        range: range
     }
     ;
 
@@ -951,7 +960,8 @@
     fromq.isFunction = isFunction;
     fromq.isArray = isArray;
     fromq.isString = isString;
-    fromq._ = fromq.lambda = lambda;
+    fromq.range = range;
+    fromq.lambda = lambda;
 
     fromq.fn.init.prototype = fromq.fn;
     return fromq;
