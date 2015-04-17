@@ -21,45 +21,60 @@
         isFunction = function (it) {
             return (it) && (it instanceof Function);
         },
+        trim = function (str) {
+            return str.replace(/(^\s*)|(\s*$)/g, '');
+        },
         err = function (msg) {
             throw new Error("fromq/method error," + msg);
         },
-        getFunctionArgumentList = function (fn) {
-            if (fn instanceof Function) {
-                var reg = /^\s*function(?:\s+[^(\s]+)?\s*\(\s*([^)]*)\s*\)/;
-                var ret = reg.exec(fn);
-                return ret[1].split(",");
-            } else return null;
-        },
-        getCallerExtValue = function (args) {
-            //console.log(args.callee.toString());
-            var fn = args.callee;
-            var defNames = getFunctionArgumentList(fn);
-            //console.log("defNames:",defNames);
-            var callParams = Array.prototype.slice.call(args);
-            //console.log("callParams:",callParams);
-            var extCount = callParams.length - defNames.length;
-            var extValues = [];
-            if (extCount) {
-                extValues = Array.prototype.slice.call(args, defNames.length);
+        dppiUtils = {     //dppiUtils.invoking(callee,clause,[]);
+            getFunctionArgumentList: function (fn) {
+                if (fn instanceof Function) {
+                    var reg = /^\s*function(?:\s+[^(\s]+)?\s*\(\s*([^)]*)\s*\)/;
+                    var ret = reg.exec(fn);
+                    return ret[1].split(",");
+                } else return null;
+            },
+            getCallerExtValue: function (args) {
+                var fn = args.callee;
+                var defNames = this.getFunctionArgumentList(fn);
+                var callParams = Array.prototype.slice.call(args);
+                var extCount = callParams.length - defNames.length;
+                var extValues = [];
+                if (extCount) {
+                    extValues = Array.prototype.slice.call(args, defNames.length);
+                }
+                return extValues;
+            },
+            invoking: function (/*Function*/fnCallee, /*Function*/clause, /*Array*/params, _self) {
+                var extValues = this.getCallerExtValue(fnCallee.arguments, clause);
+                return clause.apply(_self, params.concat(extValues));
             }
-            //console.log(extValues);
-            return extValues;
         },
-        extValueCallClause = function (/*Function*/fnCallee, /*Function*/clause, /*Array*/params, _self) {
-            //console.log(arguments);
-            var extValues = getCallerExtValue(fnCallee.arguments, clause);
-            return clause.apply(_self, params.concat(extValues));
-        },
+        lambda_Cache = {},
         lambda = function (/*String*/condition, /*Boolean*/isClosure) {
             var cStr = (condition || this.condition).split('=>');
 
             isClosure = isClosure || this.isClosed || false;
 
             if (cStr.length < 2)return null;
-            var fnCreate = function (body) {
-                return Function.apply(null, body);
-            };
+            var getCachefn = function (/**/codeBody) {
+                    var ret = null, fnObj = lambda_Cache[codeBody];
+                    if (fnObj) {
+                        ret = fnObj.method;
+                        fnObj.num += 1;
+                    }
+                    return ret;
+                },
+                buildfn = function (body, lambdaCode) {
+                    var fn = getCachefn(lambdaCode);
+                    if (!fn) {
+                        fn = Function.apply(null, body);
+                        lambda_Cache[lambdaCode] = {method: fn, num: 1};
+                    }
+                    return fn;
+                    //return Function.apply(null, body);
+                };
             var fnBody = [];
             if (cStr[0].indexOf('(') === -1) {
                 fnBody = [cStr[0]];
@@ -67,19 +82,53 @@
             else {
                 fnBody = cStr[0].replace(/\(/g, '').replace(/\)/g, '').split(',');
             }
+            //remove name leading and tail space char.
+            for (var i = 0; i < fnBody.length; i++)fnBody[i] = trim(fnBody[i]);
+
             var codeBody = cStr.slice(1, cStr.length).join("=>");
 
             if (isClosure) {//true,insert closed function code.
-                var names = fnBody.join(",");
-                codeBody = " (function(" + names + "){" + codeBody + "}).call(this," + names + ")";
+                var names = trim(fnBody.join(",")), str = [];
+                str.push(" (function(");
+                str.push(names);
+                str.push("){");
+                str.push(codeBody);
+                str.push("}).call(this");
+                if (names.length > 0)str.push(',');
+                str.push(names);
+                str.push(")");
+                codeBody = str.join('');
+                //codeBody = " (function(" + names + "){" + codeBody + "}).call(this" + (names.length> 0 ? +("," + names) : "") + ")";
+                //console.log(codeBody);
             }
-            fnBody.push("return " + codeBody + " ;");
-            return fnCreate(fnBody);
+            //support lambda function cache
+            var lambdaCode =
+                []
+                    .concat(["("])
+                    .concat(fnBody.join(","))
+                    .concat([")=>"])
+                    .concat(codeBody)
+                    .join("");
+
+            fnBody.push(
+                []
+                    .concat("'use strict;'\n")
+                    .concat("return ")
+                    .concat(codeBody)
+                    .concat(";")
+                    .join(""));
+
+            //fnBody.push("\treturn " + codeBody + " ;");
+            //console.log(fnBody);
+            return buildfn(fnBody, lambdaCode);
         },
 
         _lambdaUtils = {
             isLambda: function (it) {
-                return isString(it) && it.split('=>').length >= 2;// lambda("o=>o.split('=>').length>=2")(it);
+                var oneArg = /^\s*(\w+)\s*=>(.+)$/;
+                var manyArgs = /^\s*\(\s*([\w\s,]*)\s*\)\s*=>(.+)$/;
+                return isString(it) && ((oneArg.exec(it) || manyArgs.exec(it)));
+                //return isString(it) && it.split('=>').length >= 2;// lambda("o=>o.split('=>').length>=2")(it);
             },
             compile: function (it, isClosure) {
                 return lambda(it, isClosure);
@@ -89,6 +138,13 @@
                 if (this.isLambda(it))
                     ret = this.compile(it, isClosure);
                 if (ret === null)ret = it;
+                return ret;
+            },
+            getCache: function () {
+                var ret = [], cache = lambda_Cache;
+                for (var name in cache) {
+                    ret.push({lambda: name, method: cache[name].method, num: cache[name].num});
+                }
                 return ret;
             }
         },
@@ -110,17 +166,21 @@
             }
             var ret = [];
             for (var i = start; i < end; i += step) {
-                ret.push(i);
-                //ret[ret.length]=i;
+                //ret.push(i);
+                ret[ret.length] = i;
             }
-            return new fromq(ret);
+            return fromq(ret);
         };
+
+    lambda.getCache = _lambdaUtils.getCache;
+
+
     //example
-    // |   paraConvert(clause,function(fieldsq){return ""},function(){return;});
-    // |   paraConvert(clause,null,function(){return;});
+    // |   clauseConverter(clause,function(fieldsq){return ""},function(){return;});
+    // |   clauseConverter(clause,null,function(){return;});
     // |   fieldsProcesser=function(/*fromq*/ fieldsq){return "o=>o"}//return lambda;
-    var paramConvert = function (clause, fieldsProcesser, defaultFunction) {
-        clause = _lambdaUtils.convert(clause);
+    var clauseConverter = function (clause, fieldsProcesser, defaultFunction, isClosure) {
+        clause = _lambdaUtils.convert(clause, isClosure);
         if (isString(clause) && fieldsProcesser !== null) {
             var value = fieldsProcesser(fromq(clause));
             clause = isString(value) ? _lambdaUtils.convert(value) : value;
@@ -132,7 +192,7 @@
     var fromq = function (/*Array|String|Lambda|RegExp*/it, /*String*/splitChar) {
         //for lambda
         if (_lambdaUtils.isLambda(it))
-            return _lambdaUtils.compile(it,arguments[1]||false);
+            return _lambdaUtils.compile(it, arguments[1] || false);
         //for String :"1,2,3,4"
         if (isString(it))
             return new fromq.fn.init(it.split(splitChar || ","));
@@ -160,7 +220,7 @@
             this.regexp = it;
         },
 
-        version:'20150409/01',
+        version: '20150416/01',
 
         toArray: function () {
             return this.items;
@@ -172,14 +232,14 @@
         // | where("(a,i,n)=>a<n",n);
         where: function (/*Function|Lambda*/clause) {
             //where: function (clause) {
-            clause = paramConvert(clause, null, function () {
+            clause = clauseConverter(clause, null, function () {
                 return true
             });
             var newArray = [], it, callee = arguments.callee;
             // The clause was passed in as a Method that return a Boolean
             for (var i = 0; i < this.items.length; i++) {
                 //it = clause(this.items[index], index);
-                it = extValueCallClause(callee, clause, [this.items[i], i], null);
+                it = dppiUtils.invoking(callee, clause, [this.items[i], i], null);
                 if (it === undefined) {
                     err("where clause function must return  value!");
                 }
@@ -187,7 +247,7 @@
                     newArray[newArray.length] = this.items[i];
                 }
             }
-            return new fromq(newArray);
+            return fromq(newArray);
         },
         //example:
         // select(function(item,index){return {name:item.name,id:index};});
@@ -202,7 +262,7 @@
             clause = isString(clause) ?
                 function (item) {
                     var ret = {};
-                    var f = new fromq(fields);
+                    var f = fromq(fields);
                     f.each(function (field) {
                         if (f.count() > 1) {
                             ret[field] = item[field];
@@ -217,10 +277,12 @@
             var newArray = [];
             var callee = arguments.callee;
             this.each(function (item, index) {
-                item = extValueCallClause(callee, clause, [item, index]);//clause(item,index);
-                if (item)newArray.push(item);//newArray[newArray.length] = item;
+                item = dppiUtils.invoking(callee, clause, [item, index]);//clause(item,index);
+                if (item)
+                //newArray.push(item);
+                    newArray[newArray.length] = item;
             });
-            return new fromq(newArray);
+            return fromq(newArray);
         },
 
         //example:
@@ -257,13 +319,13 @@
             };
 
             var callee = arguments.callee;
-            return new fromq(
+            return fromq(
                 tempArray.sort(customCompare == false ? function (a, b) {
-                    var x = extValueCallClause(callee, clause, [a]);//clause(a);
-                    var y = extValueCallClause(callee, clause, [b]);//clause(b);
+                    var x = dppiUtils.invoking(callee, clause, [a]);//clause(a);
+                    var y = dppiUtils.invoking(callee, clause, [b]);//clause(b);
                     return ((x < y) ? -1 : ((x > y) ? 1 : 0));
                 } : function (a, b) {
-                    return extValueCallClause(callee, clause, [a, b]);
+                    return dppiUtils.invoking(callee, clause, [a, b]);
                 })//clause
             );
         },
@@ -302,13 +364,13 @@
                 return item;
             };
             var callee = arguments.callee;
-            return new fromq(
+            return fromq(
                 tempArray.sort(customCompare == false ? function (a, b) {
-                    var x = extValueCallClause(callee, clause, [b]);//clause(b);
-                    var y = extValueCallClause(callee, clause, [a]);//clause(a);
+                    var x = dppiUtils.invoking(callee, clause, [b]);//clause(b);
+                    var y = dppiUtils.invoking(callee, clause, [a]);//clause(a);
                     return ((x < y) ? -1 : ((x > y) ? 1 : 0));
                 } : function (a, b) {
-                    return extValueCallClause(callee, clause, [a, b])
+                    return dppiUtils.invoking(callee, clause, [a, b])
                 })//clause)
             );
         },
@@ -318,9 +380,7 @@
         // selectMany("name,age");
 
         selectMany: function (/*Function|Lambda|String feilds*/clause) {
-            //clause = _lambdaUtils.convert(clause);
-
-            clause = paramConvert(clause, function (fieldsq) {
+            clause = clauseConverter(clause, function (fieldsq) {
                 var ret = "o=>o['" + fieldsq.first() + "']";
                 if (fieldsq.count() == 1)return ret;
                 ret = [].concat("o=>{");
@@ -332,28 +392,12 @@
                 ret.push("}");
                 return ret.join("");
             }, null);
-            //clause = (function (clause) {
-            //    if (isString(clause)) {
-            //        clause = function (item) {
-            //            var ret = {};
-            //            var f = new fromq(fields, ",");
-            //            //console.log(fields);
-            //            f.each(function (field) {
-            //                if (f.count() > 1) {
-            //                    ret[field] = item[field];
-            //                } else ret = item[field];
-            //            });
-            //            return ret;
-            //        };
-            //    }
-            //    return clause;
-            //})(clause);
 
             var r = [], callee = arguments.callee;
             this.each(function (item, index) {
-                r = r.concat(extValueCallClause(callee, clause, [item, index]));//clause(item, index));
+                r = r.concat(dppiUtils.invoking(callee, clause, [item, index]));//clause(item, index));
             });
-            return new fromq(r);
+            return fromq(r);
 
         },
 
@@ -372,7 +416,7 @@
             else
             //return this.where(clause).items.length;
             //return this.where.apply(null,[clause].concat(getCallerExtValue(this.count))).items.length;
-                return extValueCallClause(arguments.callee, this.where, [clause], this).items.length;
+                return dppiUtils.invoking(arguments.callee, this.where, [clause], this).items.length;
         },
         //example:
         // distinct(function(item){return item});
@@ -382,60 +426,72 @@
         // distinct("field");
         // distinct("field",true);
         distinct: function (/*Function|Lambda|String field*/clause, /*boolean*/distinctValue) {
-            //clause = _lambdaUtils.convert(clause);
-            clause = paramConvert(clause, function (fieldsq) {
+            clause = clauseConverter(clause, function (fieldsq) {
                 return "o=>o['" + fieldsq.first() + "']";
             }, function (item) {//no clause,then return item value.
                 return item;
             });
-            //console.log(clause);
             distinctValue = distinctValue || false;
             var item;
             var dict = {};
             var retVal = [];
             for (var i = 0; i < this.items.length; i++) {
-                item = extValueCallClause(this.distinct, clause, [this.items[i], i]);//clause(this.items[i], i);
+                item = dppiUtils.invoking(arguments.callee, clause, [this.items[i], i]);//clause(this.items[i], i);
                 if (dict[item] == null) {
                     dict[item] = true;
                     retVal[retVal.length] = distinctValue ? item : this.items[i];
+                    //retVal.push(distinctValue ? item : this.items[i]);
                 }
             }
             dict = null;
-            return new fromq(retVal);
+            return fromq(retVal);
         },
         //example:
         // like where
         // any(function(item){return true});
         // any("o=>o");
+        // |var str = 'Hello world!';
+        // |console.log(fromq(/Bona/g, str).any());
+        // |console.log(fromq(/Hello/g, str).any()); // true
 
         any: function (/*Function|Lambda*/clause) {
             clause = _lambdaUtils.convert(clause);
-            var callee = arguments.callee,ret=true;
-            this.each(function(item,index){
-                ret = extValueCallClause(callee,clause , [item,index]);
-                return ret;
-            });
+            var callee = arguments.callee, ret = false;
+            if (clause)
+                this.each(function (item, index) {
+                    ret = dppiUtils.invoking(callee, clause, [item, index]);
+                    return ret;
+                });
+            else
+                ret = !this.isEmpty();
             return ret;
         },
         //example:
         // like where
         // all(function(item){return true});
         // all("o=>o<2");
+        // | var numbers=[1,2,3,4];
+        // | console.log(fromq(numbers).all("o=>o>1")); //false
+        // | console.log(fromq(numbers).all("o=>o>0")); //true
+        // | numbers=[];
+        // | console.log(fromq(numbers).all()); //false
 
         all: function (/*Function|Lambda*/clause) {
             clause = _lambdaUtils.convert(clause);
-            var callee = arguments.callee,ret=false;
-            this.each(function(item,index){
-                ret = !extValueCallClause(callee,clause , [item,index]);
-                return ret;
-            });
+            var callee = arguments.callee, ret = false;
+            if (clause && !this.isEmpty())
+                this.each(function (item, index) {
+                    ret = !dppiUtils.invoking(callee, clause, [item, index]);
+                    return ret;
+                });
+            else ret = this.isEmpty();
             return !ret;
         },
         reverse: function () {
             var retVal = [];
             for (var index = this.items.length - 1; index > -1; index--)
                 retVal[retVal.length] = this.items[index];
-            return new fromq(retVal);
+            return fromq(retVal);
         },
         //example:
         // like where
@@ -447,7 +503,7 @@
             if (clause != null) {
                 //return this.where(clause).first();
                 var callee = arguments.callee;
-                return extValueCallClause(callee, this.where, [clause], this).first();
+                return dppiUtils.invoking(callee, this.where, [clause], this).first();
             }
             else {
                 // If no clause was specified, then return the First element in the Array
@@ -466,7 +522,7 @@
         last: function (/*Function|Lambda*/clause) {
             if (clause != null) {
                 //return this.where(clause).last();
-                return extValueCallClause(arguments.callee, this.where, [clause], this).last();
+                return dppiUtils.invoking(arguments.callee, this.where, [clause], this).last();
             }
             else {
                 // If no clause was specified, then return the First element in the Array
@@ -484,7 +540,7 @@
         //      连接，不过滤相同项
         concat: function (/*Array|fromq*/second) {
             var arr = second.items || second;
-            return new fromq(this.items.concat(arr));
+            return fromq(this.items.concat(arr));
         },
 
         //description:
@@ -498,7 +554,7 @@
             //clause = _lambdaUtils.convert(clause);
             //return this.concat(second).distinct(clause);
             var ret = this.concat(second);
-            return extValueCallClause(this.union, ret.distinct, [clause], ret);
+            return dppiUtils.invoking(arguments.callee, ret.distinct, [clause], ret);
         },
         //description:
         //      相交
@@ -521,9 +577,9 @@
 
             var callee = arguments.callee;
 
-            var leftq = extValueCallClause(callee, this.distinct, [clause], this);
+            var leftq = dppiUtils.invoking(callee, this.distinct, [clause], this);
             var result = [], map = {};
-            var rightq = extValueCallClause(callee,this.distinct,[clause,true],fromq(second));
+            var rightq = dppiUtils.invoking(callee, this.distinct, [clause, true], fromq(second));
 
             rightq.each(function (item) {
                 map[item] = true;
@@ -531,10 +587,12 @@
 
             leftq.each(
                 function (item) {
-                    if (map[extValueCallClause(callee, clause, [item])])result.push(item);
+                    if (map[dppiUtils.invoking(callee, clause, [item])])
+                    //result.push(item);
+                        result[result.length] = item;
                 }
             );
-            delete map;
+            map = null;
             return fromq(result);
         },
         //description:
@@ -559,25 +617,53 @@
                 })(clause);
             }
 
-            //var _union = this.union(second, clause),
-            //    _intersect = this.intersect(second, clause);
-            var unionq = extValueCallClause(callee, this.union, [second, clause], this),
-                intersectq = extValueCallClause(callee, this.intersect, [second, clause], this);
+            //下面代码是通过连接aq不在bq的数据与bq不在aq中的数据代码实现
+            //var aq = fromq(this);
+            //aq = dppiUtils.invoking(callee, this.distinct, [clause], aq);//去除重复项
+            //aq = aq.select(function (item) {
+            //    return {item: item, id: dppiUtils.invoking(callee, clause, [item])} //重织数据
+            //});
+            //
+            //var bq = fromq(second);
+            //bq = dppiUtils.invoking(callee, this.distinct, [clause], bq);//去除重复项
+            //bq = bq.select(function (item) {
+            //    return {item: item, id: dppiUtils.invoking(callee, clause, [item])} //重织数据
+            //});
+            //
+            //var comparefn = fromq("(o,i,item)=>o.id !== item.id");                  //生成条件代码
+            //
+            //var selectfn = function (item,index,q) {
+            //    if (q.where(comparefn, item).count() > 0)
+            //        return item.item;
+            //} ;
+            //
+            //var ab1 = aq.select(selectfn,bq);//取aq未出现在bq中的数据
+            //
+            //var ab2 = bq.select(selectfn,aq);//取bq未出现在aq中的数据
+            //
+            //return ab1.concat(ab2);
+
+            //下面代码是通过排除交叉集的方法实现
+
+            var unionq = dppiUtils.invoking(callee, this.union, [second, clause], this),
+                intersectq = dppiUtils.invoking(callee, this.intersect, [second, clause], this);
 
             var result = [], map = {};
 
-            extValueCallClause(callee, this.distinct, [clause, true], intersectq).
-            //    intersectq.distinct(clause, true).
+            dppiUtils.invoking(callee, this.distinct, [clause, true], intersectq).
+                //    intersectq.distinct(clause, true).
                 each(function (item) {
                     map[item] = true;
                 });
             unionq.each(
                 function (item) {
-                    if (map[extValueCallClause(callee,clause,[item])] !== true)result.push(item);
+                    if (map[dppiUtils.invoking(callee, clause, [item])] !== true)
+                    //result.push(item);
+                        result[result.length] = item;
                 }
             );
-            delete map;
-            return new fromq(result);
+            map = null;
+            return fromq(result);
         },
         defaultIfEmpty: function (defaultValue) {
             if (this.items.length == 0) {
@@ -610,10 +696,9 @@
             var callee = arguments.callee;
             for (var i = 0; i < this.items.length; i++) {
                 //if (callback(this.items[i], i))break;
-                if (extValueCallClause(callee, callback, [this.items[i], i]))break;
-                //callback(this.items[i], i);
+                if (dppiUtils.invoking(callee, callback, [this.items[i], i]))break;
             }
-            return new fromq(this.items);
+            return fromq(this.items);
         },
 
         //example1:
@@ -632,28 +717,151 @@
         takeRange: function (/*int*/start, /*int*/ end, /*function|Lambda*/clause) {
             clause = _lambdaUtils.convert(clause);
 
-            var result;
-            clause = clause || function () {
-                return true;
-            };
-            end = end || this.items.length;
+            var result = clause ? dppiUtils.invoking(arguments.callee, this.where, [clause], this) : this;
+
+            end = end || result.items.length;
+            end = end > result.items.length ? result.items.length : end;
             start = start || 0;
 
-            result = this.items.slice(start, end);
+            return fromq(result.items.slice(start, end));
 
-            return extValueCallClause(this.takeRange, this.where, [clause], fromq(result));
-
-            //return new fromq(result).where(clause);
         },
         take: function (/*number*/top, /*function|Lambda*/clause) {
 
-            return extValueCallClause(this.take, this.takeRange, [0, top, clause], this);
+            return dppiUtils.invoking(arguments.callee, this.takeRange, [0, top, clause], this);
 
-            //return this.takeRange(0, top, clause);
         },
         skip: function (/*number*/count, /*function|Lambda*/clause) {
-            return extValueCallClause(this.skip, this.takeRange, [count, this.count(), clause], this);
-            //return this.takeRange(count, this.count(), clause);
+            return dppiUtils.invoking(arguments.callee, this.takeRange, [count, this.count(), clause], this);
+        },
+
+        paging: function (/*Number*/nextCount, /*Function|Lambda*/clause) {
+
+            clause = clauseConverter(clause, null, function () {
+                return true;
+            });
+            var _self = this, callee = arguments.callee;
+
+            var paginger = {
+                cache: null,
+                pageNo: 0,
+                nextCount: 15,
+                getCache: function () {
+                    return this.cache;
+                },
+                first: function () {
+                    return this.gotoPage(1);
+                },
+                last: function () {
+                    return this.gotoPage(this.pageCount());
+                },
+                next: function () {
+                    this.pageNo += 1;
+                    return this.gotoPage(this.pageNo);
+                },
+                prior: function () {
+                    this.pageNo -= 1;
+                    return this.gotoPage(this.pageNo);
+                },
+                current: function () {
+                    return this.gotoPage(this.pageNo);
+                },
+                isTail: function () {
+                    return this.pageNo >= this.cache.count();
+                },
+                isTop: function () {
+                    return this.pageNo <= 1;
+                },
+                reset: function () {
+                    this.pageNo = 0;
+                },
+                pageCount: function () {
+                    return Math.ceil(this.getCacheCount() / this.getNextCount());
+                },
+                //currentPageNumber: function () {
+                //    var postion = this.postion <= 0 ? 1 : this.postion;
+                //    var ret = Math.ceil(this.postion / this.getNextCount());
+                //    ret = ret > this.pageCount() ? this.pageCount() : ret;
+                //    return ret;
+                //},
+                getPageNo: function (/*Object*/item) {
+                    var ret = -1, start;
+                    ret = this.pageCount();
+                    if (item && ret > 0) {
+                        start = this.indexOf(item) + 1;
+                        if (start > 0) {
+                            ret = Math.ceil(start / this.getNextCount());
+                            ret = ret > this.pageCount() ? this.pageCount() : ret;
+                        }
+                    } else {
+                        ret = ret > 0 ? this.pageNo : ret;
+                    }
+                    return ret;
+                },
+                gotoPage: function (/*Number*/pageNumber) {
+                    this.pageNo = pageNumber;
+                    var start = (pageNumber >= 1 ? pageNumber - 1 : 0) * this.getNextCount();
+                    return this.cache.takeRange(start, start + this.getNextCount());
+                },
+                setNextCount: function (/*Number*/count) {
+                    this.nextCount = count;
+                    this.nextCount = this.nextCount < 1 ? 15 : this.nextCount;
+                    //this.reset();
+                },
+                getNextCount: function () {
+                    return this.nextCount;
+                },
+                indexOf: function (it) {
+                    return this.cache.indexOf(it);
+                },
+
+                //| example:
+                //| each(callback);
+                //| callback = function(/*fromq*/rdsq,/*Number*/pageNumber){return false;};
+                //| callback = "(rdsq,i)=>console.log('pageNumber:',i);rdsq.each('o=>console.log(o)')";
+                //|
+                each: function (/*Function|Lambda*/callback) {
+                    callback = clauseConverter(callback, null, null, true);
+                    var pageCount = this.pageCount();
+                    for (var i = 1; i <= pageCount; i++) {
+                        if (dppiUtils.invoking(arguments.callee, callback, [this.gotoPage(i), i]))break;
+                    }
+                    return this;
+                },
+                //example:
+                // | select(clause);
+                // | clause = function(/*fromq*/rdsq,/*Number*/pageNo){return {.....};};
+                // | clause = "(rdsq,pageNo)=>{pageNo:pageNo,count:rdsq.count()....}";
+                select: function (/*function|Lambda*/clause) {
+                    clause = clauseConverter(clause, null, function (rdsq, pageNo) {
+                        return {pageNo: pageNo, items: rdsq.toArray()};
+                    });
+                    if (!isFunction(clause))
+                        err("select=>clause must be function.");
+                    var item, ret = [];
+                    var callee = arguments.callee;
+                    this.each(
+                        function (rdsq, pageNo) {
+                            item = dppiUtils.invoking(callee, clause, [rdsq, pageNo]);
+                            if (item)
+                            //ret.push(item);
+                                ret[ret.length] = item;
+                        }
+                    );
+                    return fromq(ret);
+                },
+                getCacheCount: function () {
+                    return this.cache.count();
+                },
+                isEmpty: function () {
+                    return this.cache.isEmpty();
+                }
+            };
+
+            paginger.setNextCount(nextCount);
+            paginger.cache = dppiUtils.invoking(callee, _self.where, [clause], _self);
+
+            return paginger;
         },
         /*
          * group by clause function result
@@ -668,7 +876,7 @@
          * =================================
          * result:
          * {
-         *   gData:{
+         *   cache:{
          *    true:{items:Array},
          *    false:{items:Array}
          *    },
@@ -681,7 +889,7 @@
         groupBy: function (/*function|Lambda|String fields*/clause) {
             clause = _lambdaUtils.convert(clause);
 
-            if (this.items.length == 0)return grouper;
+            if (this.items.length == 0)return cache;
             //process clause is string example:
             // var list=[{name:'bona'},{name:'peter'},{name:'kerry'}];
             // fromq(list).groupBy("name");
@@ -695,15 +903,15 @@
                     return ret;
                 } : clause;
 
-            var grouper = {}, itemsLabel = "_items";
+            var cache = {}, itemsLabel = "_items";
 
             var callee = arguments.callee;
 
             this.each(
                 function (item, index) {
                     //var gLabel = clause(item, index);
-                    var gLabel = extValueCallClause(callee, clause, [item, index]);
-                    var root = grouper, _prior;
+                    var gLabel = dppiUtils.invoking(callee, clause, [item, index]);
+                    var root = cache, _prior;
                     if (isArray(gLabel)) {
                         fromq(gLabel).each(function (label) {
                             _prior = root;
@@ -714,7 +922,8 @@
                     }
                     root = root[gLabel] = root[gLabel] || {};
                     root[itemsLabel] = root[itemsLabel] || [];
-                    root[itemsLabel].push(item);
+                    //root[itemsLabel].push(item);
+                    root[itemsLabel][root[itemsLabel].length] = item;
                 }
             );
 
@@ -725,18 +934,18 @@
                 for (var name in data) {
                     var groups = names.concat(name);
                     if (isArray(data[name])) {
-                        ret = extValueCallClause(grouper.each, clause, [fromq(name == itemsLabel ? names : groups), fromq(data[name])]);
+                        ret = dppiUtils.invoking(cache.each, clause, [fromq(name == itemsLabel ? names : groups), fromq(data[name])]);
                         if (ret)break;
                     } else {
                         //_process(groups, data[name], clause);
-                        extValueCallClause(grouper.each, _process, [groups, data[name], clause]);
+                        dppiUtils.invoking(cache.each, _process, [groups, data[name], clause]);
                     }
                 }
                 return ret;
             };
 
-            var grouper = {
-                gData: grouper,
+            var grouped = {
+                cache: cache,
                 //example:
                 // select(function(/*_from*/g,/*_from*/i){
                 //    f=i.select("o=>o.age");
@@ -753,14 +962,16 @@
                 select: function (/*Function|Lambda*/clause) {
                     clause = _lambdaUtils.convert(clause);
                     var ret = [];
-                    var self = this;
+                    var callee = arguments.callee;
                     this.each(
                         function (groups, items) {
                             //var item = clause(groups, items);
-                            var item = extValueCallClause(self.select, clause, [groups, items]);
-                            if (item) ret.push(item);
+                            var item = dppiUtils.invoking(callee, clause, [groups, items]);
+                            if (item)
+                            //ret.push(item);
+                                ret[ret.length] = item;
                         });
-                    return new fromq(ret);
+                    return fromq(ret);
                 },
                 //example:
                 // |  each(function(/*_from*/group,/*_from*/items){});
@@ -768,22 +979,22 @@
                 // |  each("(g,i,n)=>i.each('o=>console.log(o*n)')",n);
                 each: function (/*Function|Lambda*/clause) {
                     clause = _lambdaUtils.convert(clause, true);
-                    extValueCallClause(this.each, _process, [[], this.gData, clause]);
-                    //_process([], this.gData, clause);
+                    dppiUtils.invoking(arguments.callee, _process, [[], this.cache, clause]);
+                    //_process([], this.cache, clause);
                     return this;
                 },
-                getData: function () {
-                    return this.gData;
+                getCache: function () {
+                    return this.cache;
                 }
             };
-            return grouper;
+            return grouped;
         },
         max: function (/*Function|Lambda|String field*/clause) {
             clause = clause || function (item) {
                 if (isString(value) && isFloat(item))//process string value is float.
                     return parseFloat(item);
             };
-            return extValueCallClause(this.max, this.orderBy, [clause], this).last();
+            return dppiUtils.invoking(this.max, this.orderBy, [clause], this).last();
             //return this.orderBy(clause).last();
         }
         ,
@@ -792,7 +1003,7 @@
                 if (isString(value) && isFloat(item))//process string value is float.
                     return parseFloat(item);
             };
-            return extValueCallClause(this.min, this.orderBy, [clause], this).first();
+            return dppiUtils.invoking(this.min, this.orderBy, [clause], this).first();
             //return this.orderBy(clause).first();
         }
         ,
@@ -824,7 +1035,7 @@
             var callee = arguments.callee;
             this.each(clause !== undefined ? function (item, index) {
                     //ret += clause(item);
-                    ret += extValueCallClause(callee, clause, [item, index]);//support sum function extend args
+                    ret += dppiUtils.invoking(callee, clause, [item, index]);//support sum function extend args
                 } :
                     function (item) {
                         if (isString(item) && isFloat(item))//process string value is float.
@@ -840,7 +1051,7 @@
         avg: function (/*Function|Lambda|String field*/clause) {
             //var callee = arguments.callee;
             return this.isEmpty() ? Number.NaN :
-            extValueCallClause(arguments.callee, this.sum, [clause], this) / this.count();//this.sum(clause) / this.count();
+            dppiUtils.invoking(arguments.callee, this.sum, [clause], this) / this.count();//this.sum(clause) / this.count();
         }
         ,
         isEmpty: function () {
@@ -855,7 +1066,7 @@
         contains: function (/*Function|Lambda|value*/clause) {
             //return this.indexOf(clause) !== -1;
             var callee = arguments.callee;
-            return extValueCallClause(callee, this.indexOf, [clause], this) !== -1;
+            return dppiUtils.invoking(callee, this.indexOf, [clause], this) !== -1;
         },
         //example:
         // |  fromq("1,2,3,4,5").indexOf("o=>o==='5'");
@@ -874,7 +1085,7 @@
             var callee = arguments.callee;
             this.each(function (item, index) {
                 //if (clause(item, index)) {
-                if (extValueCallClause(callee, clause, [item, index])) {
+                if (dppiUtils.invoking(callee, clause, [item, index])) {
                     ret = index;
                     return true;
                 }
@@ -887,13 +1098,39 @@
         //example:
         // |  fromq("1,2,3,4").join(fromq("2,3"),"(a,b)=>a-b==0","(a,b)=>{a:a,b:b}");
         leftJoin: function (/*Array|fromq*/second, /*Function|lambda|String fields*/comparer, /*Function|Lambda*/selector) {
+            return dppiUtils.invoking(arguments.callee, this.join, ['left', second, comparer, selector], this);
+        },
+        innerJoin: function (/*Array|fromq*/second, /*Function|lambda|String fields*/comparer, /*Function|Lambda*/selector) {
+            return dppiUtils.invoking(arguments.callee, this.join, ['inner', second, comparer, selector], this);
+        },
+        join: function (/*String*/joinType, /*Array|fromq*/second, /*Function|lambda|String fields*/comparer, /*Function|Lambda*/selector) {
+            var type = {
+                left: false, inner: false, getType: function () {
+                    for (var name in this) {
+                        if (this[name])return name
+                    }
+                },
+                isLeft: function () {
+                    return this.left;
+                },
+                isInner: function () {
+                    return this.inner;
+                },
+                isType: function (it) {
+                    return it in this && typeof this[it] === 'boolean';
+                }
+
+            };
+            if (!isString(joinType) || !(type.isType(joinType)))return fromq([]);
+            type[joinType] = true;
+
             var leftq = fromq(this), rightq = fromq(second);
 
-            selector = paramConvert(selector, null, function (a, b) {
+            selector = clauseConverter(selector, null, function (a, b) {
                 return {"left": a, "right": b};
             });
 
-            comparer = paramConvert(comparer, function (fieldsq) {
+            comparer = clauseConverter(comparer, function (fieldsq) {
                 //var ret = ["(a,b)=>(function(a,b){console.log(arguments);return "];
                 var ret = ["(a,b)=>"];
                 fieldsq.each(function (name) {
@@ -912,12 +1149,13 @@
                 function (leftItem) {
                     var value = rightq.first(function (rightItem) {
                         //console.log(leftItem,rightItem);
-                        return extValueCallClause(callee, comparer, [leftItem, rightItem]);
+                        return dppiUtils.invoking(callee, comparer, [leftItem, rightItem]);
                         //return comparer(leftItem, rightItem);
                     });
+                    if (value || type.isLeft())
                     //if (value) {
                     //return selector(leftItem, value||{});
-                    return extValueCallClause(callee, selector, [leftItem, value || {}]);
+                        return dppiUtils.invoking(callee, selector, [leftItem, value || {}]);
                     //}
                 });
         },
@@ -931,7 +1169,7 @@
                 while ((value = this.regexp.exec(str)) !== null)
                     ret.push(value);
             }
-            return new fromq(ret);
+            return fromq(ret);
         },
         //example:
         // |  range(10).echo("o=>console.log(o)");
@@ -950,8 +1188,8 @@
     fromq.fn.tail = fromq.fn.last;
     fromq.fn.aggregate = fromq.fn.sum;
     fromq.fn.average = fromq.fn.avg;
-    fromq.fn.join = fromq.fn.leftJoin;
     fromq.fn.map = fromq.fn.select;
+    fromq.fn.orderByDesc = fromq.fn.orderByDescending;
 
 
 //static function:
