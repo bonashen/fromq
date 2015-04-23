@@ -1,6 +1,14 @@
 ﻿define(null, [], function () {
     //"use strict";
 
+    var reNumber = /^[0-9]+$/,
+        reFloat = /^(\+|-)?\d+($|\.\d+$)/,
+        reTrim = /(^\s*)|(\s*$)/g;
+
+    var reFunctionArgumentList = /^\s*function(?:\s+[^(\s]+)?\s*\(\s*([^)]*)\s*\)/;
+    var reOneArg = /^\s*(\w+)\s*=>(.+)$/;
+    var reManyArgs = /^\s*\(\s*([\w\s,]*)\s*\)\s*=>(.+)$/;
+
     //isString,isFunction,isArray implement code is come from dojo library.
     var isString = function (it) {
             // summary:
@@ -10,10 +18,12 @@
             return (typeof it == "string" || it instanceof String); // Boolean
         },
         isNumber = function (str) {
-            return /^[0-9]+$/.exec(str) ? true : false;
+            reNumber.lastIndex = 0;
+            return reNumber.exec(str) ? true : false;
         },
         isFloat = function (str) {
-            return /^(\+|-)?\d+($|\.\d+$)/.exec(str) ? true : false;
+            reFloat.lastIndex = 0;
+            return reFloat.exec(str) ? true : false;
         },
         isArray = function (it) {
             return it && (it instanceof Array || (typeof it) == "array");
@@ -22,32 +32,39 @@
             return (it) && (it instanceof Function);
         },
         trim = function (str) {
-            return str.replace(/(^\s*)|(\s*$)/g, '');
+            reTrim.lastIndex = 0;
+            return str.replace(reTrim, '');
         },
         err = function (msg) {
             throw new Error("fromq/method error," + msg);
         },
+
         dppiUtils = {     //dppiUtils.invoking(callee,clause,[]);
             getFunctionArgumentList: function (fn) {
-                if (fn instanceof Function) {
-                    var reg = /^\s*function(?:\s+[^(\s]+)?\s*\(\s*([^)]*)\s*\)/;
-                    var ret = reg.exec(fn);
+                if (isFunction(fn)) {
+                    reFunctionArgumentList.lastIndex = 0;
+                    var ret = reFunctionArgumentList.exec(fn);
                     return ret[1].split(",");
                 } else return null;
             },
-            getCallerExtValue: function (args) {
-                var fn = args.callee;
-                var defNames = this.getFunctionArgumentList(fn);
-                var callParams = Array.prototype.slice.call(args);
-                var extCount = callParams.length - defNames.length;
+            getCallerExtValues: function (caller) {
+                var extCount = this.getCallerExtCount(caller);
+                var defNames = this.getFunctionArgumentList(caller);
                 var extValues = [];
                 if (extCount) {
-                    extValues = Array.prototype.slice.call(args, defNames.length);
+                    extValues = Array.prototype.slice.call(caller.arguments, defNames.length);
                 }
                 return extValues;
             },
-            invoking: function (/*Function*/fnCallee, /*Function*/clause, /*Array*/params, _self) {
-                var extValues = this.getCallerExtValue(fnCallee.arguments, clause);
+            getCallerExtCount: function (caller) {
+                var fn = caller;
+                //console.log(fn);
+                var defNames = this.getFunctionArgumentList(fn);
+                var callParamsLength = fn.arguments.length; //Array.prototype.slice.call(fn.arguments);
+                return callParamsLength - defNames.length;
+            },
+            invoking: function (/*Function*/fnCaller, /*Function*/clause, /*Array*/params, _self) {
+                var extValues = this.getCallerExtValues(fnCaller, clause);
                 return clause.apply(_self, params.concat(extValues));
             }
         },
@@ -93,10 +110,11 @@
                 str.push(names);
                 str.push("){");
                 str.push(codeBody);
-                str.push("}).call(this");
-                if (names.length > 0)str.push(',');
-                str.push(names);
-                str.push(")");
+                str.push("}).apply(this,arguments)");
+                //str.push("}).call(this");
+                //if (names.length > 0)str.push(',');
+                //str.push(names);
+                //str.push(")");
                 codeBody = str.join('');
                 //codeBody = " (function(" + names + "){" + codeBody + "}).call(this" + (names.length> 0 ? +("," + names) : "") + ")";
                 //console.log(codeBody);
@@ -112,7 +130,7 @@
 
             fnBody.push(
                 []
-                    .concat("'use strict;'\n")
+                    .concat("'use strict';\n")
                     .concat("return ")
                     .concat(codeBody)
                     .concat(";")
@@ -125,9 +143,9 @@
 
         _lambdaUtils = {
             isLambda: function (it) {
-                var oneArg = /^\s*(\w+)\s*=>(.+)$/;
-                var manyArgs = /^\s*\(\s*([\w\s,]*)\s*\)\s*=>(.+)$/;
-                return isString(it) && ((oneArg.exec(it) || manyArgs.exec(it)));
+                reOneArg.lastIndex = 0;
+                reManyArgs.lastIndex = 0;
+                return isString(it) && ((reOneArg.exec(it) || reManyArgs.exec(it)) !== null);
                 //return isString(it) && it.split('=>').length >= 2;// lambda("o=>o.split('=>').length>=2")(it);
             },
             compile: function (it, isClosure) {
@@ -145,7 +163,10 @@
                 for (var name in cache) {
                     ret.push({lambda: name, method: cache[name].method, num: cache[name].num});
                 }
-                return ret;
+                return fromq(ret);
+            },
+            resetCache: function () {
+                lambda_Cache = {};
             }
         },
         range = function (start, end, step) {
@@ -170,9 +191,21 @@
                 ret[ret.length] = i;
             }
             return fromq(ret);
+        },
+        repeat = function (/*String*/it, /*number*/count) {
+            var i = 0, ret = [];
+            for (; i < count; i++) {
+                ret[i] = it;
+            }
+            return fromq(ret);
+        },
+        random = function (count, maxValue) {
+            var i = 0, ret = [];
+            for (; i < count; i++) {
+                ret[i] = Math.round(Math.random() * maxValue);
+            }
+            return fromq(ret);
         };
-
-    lambda.getCache = _lambdaUtils.getCache;
 
 
     //example
@@ -189,7 +222,36 @@
         return clause;
     };
 
-    var fromq = function (/*Array|String|Lambda|RegExp*/it, /*String*/splitChar) {
+
+    //将字符串中单词的首字母转换为大写字母
+    var initialsToUpperCase = function (it) {
+            var re = /([^A-z]*)([A-z]+)([^A-z]*)/g;
+            var src = it;
+            return fromq(re)
+                //取出每个单词分组
+                .match(src)
+                //取出每个单词的首字母
+                // |o[0]为分组的总字符串
+                // |o[1]为前导非字母字符串
+                // |o[2]为中间字母字符串
+                .select(fromq(
+                    //"(o,i,fn)=>[].concat(o[1]).concat(o[2].replace(/(\\w)/,fn)).concat(o[3]).join('')"
+                    "(o,i,fn)=>o[0].replace(/(\\w)/,fn)"
+                ),
+                function (s) {
+                    //转换首字母为大写并返回
+                    return s.toUpperCase();
+                }).toString("");
+        },
+    //将字符中首个单词的首字母转换为大写字母
+        initialToUpperCase = function (it) {
+            return it.replace(/(\w)/,
+                function (s) {
+                    return s.toUpperCase();                      //转换首字母为大写并返回
+                });
+        };
+
+    var fromq = function (/*Array|String|Lambda|RegExp*/it, /*String|Boolean*/splitChar) {
         //for lambda
         if (_lambdaUtils.isLambda(it))
             return _lambdaUtils.compile(it, arguments[1] || false);
@@ -218,11 +280,16 @@
         init: function (/*Array|RegExp*/it) {
             this.items = it;
             this.regexp = it;
+            this.utils = utils;
         },
-
         version: '20150416/01',
-
-        toArray: function () {
+        vendor: "bonashen.com",
+        toArray: function (/*Array*/arr) {
+            if (isArray(arr)) {
+                for (var i = 1, l = this.count(); i < l; i++) {
+                    arr[arr.length] = this.items[i];
+                }
+            }
             return this.items;
         },
         //example1:
@@ -415,7 +482,6 @@
                 return this.items.length;
             else
             //return this.where(clause).items.length;
-            //return this.where.apply(null,[clause].concat(getCallerExtValue(this.count))).items.length;
                 return dppiUtils.invoking(arguments.callee, this.where, [clause], this).items.length;
         },
         //example:
@@ -427,7 +493,7 @@
         // distinct("field",true);
         distinct: function (/*Function|Lambda|String field*/clause, /*boolean*/distinctValue) {
             clause = clauseConverter(clause, function (fieldsq) {
-                return "o=>o['" + fieldsq.first() + "']";
+                return "o=>o['" + fieldsq.trim().select("o=>o").first() + "']";
             }, function (item) {//no clause,then return item value.
                 return item;
             });
@@ -889,6 +955,11 @@
         groupBy: function (/*function|Lambda|String fields*/clause) {
             clause = _lambdaUtils.convert(clause);
 
+            var cache, grouped, itemsLabel = "_items";
+            cache = grouped = {};
+
+            var callee = arguments.callee;
+
             if (this.items.length == 0)return cache;
             //process clause is string example:
             // var list=[{name:'bona'},{name:'peter'},{name:'kerry'}];
@@ -902,10 +973,6 @@
                     });
                     return ret;
                 } : clause;
-
-            var cache = {}, itemsLabel = "_items";
-
-            var callee = arguments.callee;
 
             this.each(
                 function (item, index) {
@@ -927,24 +994,24 @@
                 }
             );
 
+
             var _process = function (/*Array*/names, /*object*/data, clause) {
                 var ret;
-                //console.log(arguments);
                 names = names.concat();
                 for (var name in data) {
                     var groups = names.concat(name);
                     if (isArray(data[name])) {
-                        ret = dppiUtils.invoking(cache.each, clause, [fromq(name == itemsLabel ? names : groups), fromq(data[name])]);
-                        if (ret)break;
+                        ret = dppiUtils.invoking(grouped.each, clause, [fromq(name == itemsLabel ? names : groups), fromq(data[name])]);
                     } else {
                         //_process(groups, data[name], clause);
-                        dppiUtils.invoking(cache.each, _process, [groups, data[name], clause]);
+                        ret = dppiUtils.invoking(grouped.each, _process, [groups, data[name], clause]);
                     }
+                    if (ret)break;
                 }
                 return ret;
             };
 
-            var grouped = {
+            grouped = {
                 cache: cache,
                 //example:
                 // select(function(/*_from*/g,/*_from*/i){
@@ -1095,6 +1162,50 @@
         toString: function (separator) {
             return this.toArray().join(separator || '');
         },
+        //删除字符串首尾空格并重新组织fromq
+        trim: function () {
+            var ret = [];
+            this.each(function (item) {
+                if (isString(item)) {
+                    ret[ret.length] = trim(item);
+                    if (!ret[ret.length - 1]) //如果为空字符串时，过滤该字符串
+                        ret.length = ret.length - 1;
+                } else ret[ret.length] = item;
+            });
+            return fromq(ret);
+        },
+        //将数组中字符串所有单词的首字母转为大写字母
+        initialsToUpperCase: function () {
+            var ret = [];
+            this.each(function (item) {
+                if (isString(item)) {
+                    ret[ret.length] = initialsToUpperCase(item);
+                } else ret[ret.length] = item;
+            });
+            return fromq(ret);
+        },
+        //将数组中字符串第一个单词的首字母转为大写字母
+        initialToUpperCase: function () {
+            var ret = [];
+            this.each(function (item) {
+                if (isString(item)) {
+                    ret[ret.length] = initialToUpperCase(item);
+                } else ret[ret.length] = item;
+            });
+            return fromq(ret);
+        },
+        //随机从数组中选择count数量的元素
+        // |example:fromq([1,3,6,9]).random(5).toString(",");
+        // |out:
+        // |   1,3,9,9,6
+        random: function (/*Number*/count) {
+            var i = 0, ret = [], maxValue = this.items.length - 1, item;
+            for (; i < count; i++) {
+                item = this.elementAt(Math.round(Math.random() * maxValue));
+                if (item)ret[i] = item;
+            }
+            return fromq(ret);
+        },
         //example:
         // |  fromq("1,2,3,4").join(fromq("2,3"),"(a,b)=>a-b==0","(a,b)=>{a:a,b:b}");
         leftJoin: function (/*Array|fromq*/second, /*Function|lambda|String fields*/comparer, /*Function|Lambda*/selector) {
@@ -1170,14 +1281,8 @@
                     ret.push(value);
             }
             return fromq(ret);
-        },
-        //example:
-        // |  range(10).echo("o=>console.log(o)");
-        // |  range(0,10).echo("o=>console.log(o)");
-        // |  range(0,10,2).echo("o=>console.log(o)");
-        range: range
-    }
-    ;
+        }
+    };
 
 //alias:
     fromq.fn.filter = fromq.fn.where;
@@ -1190,18 +1295,78 @@
     fromq.fn.average = fromq.fn.avg;
     fromq.fn.map = fromq.fn.select;
     fromq.fn.orderByDesc = fromq.fn.orderByDescending;
+    fromq.fn.headOrDefault = fromq.fn.firstOrDefault;
+    fromq.fn.tailOrDefault = fromq.fn.lastOrDefault;
+    fromq.fn.sort = fromq.fn.orderBy;
+    fromq.fn.sortBy = fromq.fn.orderBy;
 
-
-//static function:
-    fromq.isNumber = isNumber;
-    fromq.isFloat = isFloat;
-    fromq.isFunction = isFunction;
-    fromq.isArray = isArray;
-    fromq.isString = isString;
-    fromq.range = range;
-    fromq.lambda = lambda;
 
     fromq.fn.init.prototype = fromq.fn;
+
+
+//static function collection for fromq.utils:
+    var utils = fromq.utils = {
+        isNumber: isNumber,
+        isFloat: isFloat,
+        isFunction: isFunction,
+        isArray: isArray,
+        isString: isString,
+        //example:
+        // |  range(10).echo("o=>console.log(o)");
+        // |  range(0,10).echo("o=>console.log(o)");
+        // |  range(0,10,2).echo("o=>console.log(o)");
+        range: range,
+        //example:
+        // | repeat("a",4).toString() //aaaa
+        repeat: repeat,
+        //example:
+        // |random(10,20).toString(",");//1,3,19,18,8,18,1,12,11,7
+        random: random,
+        trim: trim,
+        lambda: lambda,
+        initialsToUpperCase: initialsToUpperCase,
+        initialToUpperCase: initialToUpperCase,
+        //example:
+        //var fn = function () { console.log(arguments); };
+        //var caller = function (item, index) {
+        //    fromq.utils.invoking(arguments.callee, fn, [1, 2]);
+        //};
+        //caller("test", 10, 45);
+        // |out:
+        // |    [1,2,45]
+        invoking: dppiUtils.invoking.bind(dppiUtils)
+    };
+
+    fromq.lambda = lambda;
+
+//static function for lambda
+    lambda.getCache = _lambdaUtils.getCache;
+    lambda.isLambda = _lambdaUtils.isLambda;
+    lambda.resetCache = _lambdaUtils.resetCache;
+
+    //exports
+    (function () {
+        var platform,
+            platformList = {
+                'nodejs': function () {
+                    return typeof module !== 'undefined' && module.exports;
+                },
+                'web': function () {
+                    return true;
+                }
+            };
+        for (var key in platformList) {
+            if (platformList[key]()) {
+                platform = key;
+                break;
+            }
+        }
+        if (platform == 'nodejs') {
+            module.exports = fromq;
+        } else {
+            window.fromq = fromq;
+        }
+    })();
     return fromq;
 })
 ;
