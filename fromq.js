@@ -63,8 +63,10 @@
                 var callParamsLength = fn.arguments.length; //Array.prototype.slice.call(fn.arguments);
                 return callParamsLength - defNames.length;
             },
-            invoking: function (/*Function*/fnCaller, /*Function*/clause, /*Array*/params, _self) {
-                var extValues = this.getCallerExtValues(fnCaller, clause);
+            invoking: function (/*Function*/fnCaller, /*Function|Lambda|String*/clause, /*Array*/params, _self) {
+                var extValues = this.getCallerExtValues(fnCaller);
+                clause = clauseConverter(clause, null, null);
+                if (_self && isString(clause))clause = _self[clause];
                 return clause.apply(_self, params.concat(extValues));
             }
         },
@@ -205,7 +207,32 @@
                 ret[i] = Math.round(Math.random() * maxValue);
             }
             return fromq(ret);
-        };
+        },
+        inOrNotIn = function (notIn) {
+            return function (/*fromq|array*/it, /*Lambda|function|field*/distinctClause) {
+                var _this = this, map = {};
+                var ret = [], callee = arguments.callee;
+                dppiUtils.invoking(callee, "distinct", [distinctClause, true], fromq(it))
+                    .each("(o,i,m)=>m[o]=true", map);
+
+                distinctClause = clauseConverter(distinctClause, function (rdsq) {
+                    return ["(o)=>o['"].concat(rdsq.trim().first()).concat("']").join("");
+                }, function (item) {
+                    return item;
+                });
+
+                _this.each(
+                    function (item, index) {
+                        if (notIn ^ map[dppiUtils.invoking(callee, distinctClause, [item, index])]) {
+                            ret[ret.length] = item;
+                        }
+                    }
+                );
+                map = null;
+                return fromq(ret);
+            }
+        }
+        ;
 
 
     //example
@@ -218,7 +245,7 @@
             var value = fieldsProcesser(fromq(clause));
             clause = isString(value) ? _lambdaUtils.convert(value) : value;
         }
-        if (!isFunction(clause))clause = defaultFunction;
+        if (!isFunction(clause) && defaultFunction !== null)clause = defaultFunction;
         return clause;
     };
 
@@ -493,7 +520,7 @@
         // distinct("field",true);
         distinct: function (/*Function|Lambda|String field*/clause, /*boolean*/distinctValue) {
             clause = clauseConverter(clause, function (fieldsq) {
-                return "o=>o['" + fieldsq.trim().select("o=>o").first() + "']";
+                return "o=>o['" + fieldsq.trim()/*.select("o=>o")*/.first() + "']";
             }, function (item) {//no clause,then return item value.
                 return item;
             });
@@ -1281,6 +1308,16 @@
                     ret.push(value);
             }
             return fromq(ret);
+        },
+        //eg:
+        // |fromq([1,2,3]).notIn([3,4]).each("o=>console.log(o)");//out:1,2
+        notIn: function (/*fromq|array*/it, /*Lambda|function|field*/distinctClause) {
+            return inOrNotIn(true).apply(this, arguments);
+        },
+        //eg:
+        // |fromq([1,2,3]).in([3,4]).each("o=>console.log(o)");//out:3
+        in: function (/*fromq|array*/it, /*Lambda|function|field*/distinctClause) {
+            return inOrNotIn(false).apply(this, arguments);
         }
     };
 
@@ -1344,7 +1381,7 @@
     lambda.isLambda = _lambdaUtils.isLambda;
     lambda.resetCache = _lambdaUtils.resetCache;
 
-    //exports
+//exports
     (function () {
         var platform,
             platformList = {
