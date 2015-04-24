@@ -208,6 +208,12 @@
             }
             return fromq(ret);
         },
+        fieldToLambda = function (field) {
+            if (isString(field) && !_lambdaUtils.isLambda(field)) {
+                field = ["o=>o['"].concat(trim(field)).concat("']").join("");
+            }
+            return field;
+        },
         inOrNotIn = function (notIn) {
             //eg:
             // | var distinct = function(item,index){return item;};
@@ -216,13 +222,12 @@
             // | fromq([1,2,3]).in([2,4],{left:distinct,right:distinct}).each(log);
             // | fromq([1,2,3]).in([2,4],{left:"o=>o",right:"o=>o"}).each(log);
             // | fromq([1,2,3]).notIn([2,4],"o=>o").each(log);
-            return function (/*fromq|array*/it, /*Lambda|function|fields*/distinctClause) {
+            return function (/*fromq|array*/it,/*lambda|function|string fields|{left:'',right:''}*/distinctClause) {
                 var _this = this, map = {};
                 var ret = [], callee = arguments.callee;
+
                 //default
                 if (distinctClause == null) {
-                    //var lm = "o=>o";
-                    //distinctClause = {left: lm, right: lm};
                     distinctClause = {};
                 }
                 //is lambda
@@ -231,8 +236,8 @@
                 if (isString(distinctClause)) {
                     var rdsq = fromq(distinctClause).trim();
                     distinctClause = {
-                        left: ["(o)=>o['"].concat(rdsq.first()).concat("']").join(""),
-                        right: ["(o)=>o['"].concat(rdsq.last()).concat("']").join("")
+                        left: fieldToLambda(rdsq.first()),
+                        right: fieldToLambda(rdsq.last())
                     };
                 }
 
@@ -240,19 +245,20 @@
                     distinctClause = {left: distinctClause, right: distinctClause};
                 }
 
-                if(distinctClause){
+                if (distinctClause) {
                     var lm = "o=>o";
-                    if(distinctClause.left==null)distinctClause.left =lm;
-                    distinctClause.left = _lambdaUtils.convert(distinctClause.left);
-                    if(distinctClause.right==null)distinctClause.right =lm;
-                    distinctClause.right = _lambdaUtils.convert(distinctClause.right);
+                    var left = distinctClause.left || lm;
+                    left = fieldToLambda(left);
+                    distinctClause.left = _lambdaUtils.convert(left);
+                    var right = distinctClause.right || lm;
+                    right = fieldToLambda(right);
+                    distinctClause.right = _lambdaUtils.convert(right);
                 }
 
                 //console.log(distinctClause);
 
                 dppiUtils.invoking(callee, "distinct", [distinctClause.right, true], fromq(it))
                     .each("(o,i,m)=>m[o]=true", map);
-
 
                 _this.each(
                     function (item, index) {
@@ -264,8 +270,7 @@
                 map = null;
                 return fromq(ret);
             }
-        }
-        ;
+        };
 
 
     //example
@@ -553,7 +558,8 @@
         // distinct("field",true);
         distinct: function (/*Function|Lambda|String field*/clause, /*boolean*/distinctValue) {
             clause = clauseConverter(clause, function (fieldsq) {
-                return "o=>o['" + fieldsq.trim()/*.select("o=>o")*/.first() + "']";
+                //return "o=>o['" + fieldsq.trim()/*.select("o=>o")*/.first() + "']";
+                return fieldToLambda(fieldsq.trim().first());
             }, function (item) {//no clause,then return item value.
                 return item;
             });
@@ -1350,12 +1356,13 @@
         // | fromq([1,2,3]).notIn([2,4]).each(log); //out:1,3
         // | fromq([1,2,3]).notIn([2,4],{left:distinct,right:distinct}).each(log); //out:1,3
         // | fromq([1,2,3]).notIn([2,4],"o=>o").each(log); //out:1,3
-        notIn: function (/*fromq|array*/it, /*Lambda|function|field*/distinctClause) {
+        // | fromq([1,2,3]).notIn([2,4],{left:"o=>o",right:"o=>o"}).each(log); //out:1,3
+        notIn: function (/*fromq|array*/it,/*lambda|function|string fields|{left:'',right:''}*/distinctClause) {
             return inOrNotIn(true).apply(this, arguments);
         },
         //eg:
         // @see notIn
-        in: function (/*fromq|array*/it, /*Lambda|function|field*/distinctClause) {
+        in: function (/*fromq|array*/it,/*lambda|function|string fields|{left:'',right:''}*/distinctClause) {
             return inOrNotIn(false).apply(this, arguments);
         }
     };
