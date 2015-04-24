@@ -231,10 +231,9 @@
                 if (isString(distinctClause)) {
                     var rdsq = fromq(distinctClause).trim();
                     distinctClause = {
-                        left: fromq(["(o)=>o['"].concat(rdsq.first()).concat("']").join("")),
-                        right: fromq(["(o)=>o['"].concat(rdsq.last()).concat("']").join(""))
+                        left: ["(o)=>o['"].concat(rdsq.first()).concat("']").join(""),
+                        right: ["(o)=>o['"].concat(rdsq.last()).concat("']").join("")
                     };
-
                 }
 
                 if (isFunction(distinctClause)) {
