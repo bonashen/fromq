@@ -182,7 +182,7 @@
                     step = (end > start ? 1 : -1);
                     break;
             }
-            if (step < 0) {
+            if (step < 0 && end > start) {
                 var value = start;
                 start = end;
                 end = value;
@@ -203,6 +203,7 @@
         },
         random = function (count, maxValue) {
             var i = 0, ret = [];
+            maxValue -= 1;
             for (; i < count; i++) {
                 ret[i] = Math.round(Math.random() * maxValue);
             }
@@ -222,7 +223,7 @@
             // | fromq([1,2,3]).in([2,4],{left:distinct,right:distinct}).each(log);
             // | fromq([1,2,3]).in([2,4],{left:"o=>o",right:"o=>o"}).each(log);
             // | fromq([1,2,3]).notIn([2,4],"o=>o").each(log);
-            return function (/*fromq|array*/it,/*lambda|function|string fields|{left:'',right:''}*/distinctClause) {
+            return function (/*fromq|array*/it, /*lambda|function|string fields|{left:'',right:''}*/distinctClause) {
                 var _this = this, map = {};
                 var ret = [], callee = arguments.callee;
 
@@ -351,11 +352,15 @@
         vendor: "bonashen.com",
         toArray: function (/*Array*/arr) {
             if (isArray(arr)) {
-                for (var i = 1, l = this.count(); i < l; i++) {
+                for (var i = 0, l = this.count(); i < l; i++) {
                     arr[arr.length] = this.items[i];
                 }
             }
             return this.items;
+        },
+        into: function (/*Array*/arr) {
+            this.toArray(arr);
+            return this;
         },
         //example1:
         // where(function(item,index){ });
@@ -1021,61 +1026,8 @@
         groupBy: function (/*function|Lambda|String fields*/clause) {
             clause = _lambdaUtils.convert(clause);
 
-            var cache, grouped, itemsLabel = "_items";
-            cache = grouped = {};
-
+            var cache = {}, grouped, itemsLabel = "_items";
             var callee = arguments.callee;
-
-            if (this.items.length == 0)return cache;
-            //process clause is string example:
-            // var list=[{name:'bona'},{name:'peter'},{name:'kerry'}];
-            // fromq(list).groupBy("name");
-            var fields = clause;
-            clause = isString(clause) ?
-                function (item) {
-                    var ret = [];
-                    fromq(fields, ",").each(function (field) {
-                        ret.push([item[field]]);
-                    });
-                    return ret;
-                } : clause;
-
-            this.each(
-                function (item, index) {
-                    //var gLabel = clause(item, index);
-                    var gLabel = dppiUtils.invoking(callee, clause, [item, index]);
-                    var root = cache, _prior;
-                    if (isArray(gLabel)) {
-                        fromq(gLabel).each(function (label) {
-                            _prior = root;
-                            root = root[label] = root[label] || {};
-                        });
-                        root = _prior;
-                        gLabel = gLabel[gLabel.length - 1];
-                    }
-                    root = root[gLabel] = root[gLabel] || {};
-                    root[itemsLabel] = root[itemsLabel] || [];
-                    //root[itemsLabel].push(item);
-                    root[itemsLabel][root[itemsLabel].length] = item;
-                }
-            );
-
-
-            var _process = function (/*Array*/names, /*object*/data, clause) {
-                var ret;
-                names = names.concat();
-                for (var name in data) {
-                    var groups = names.concat(name);
-                    if (isArray(data[name])) {
-                        ret = dppiUtils.invoking(grouped.each, clause, [fromq(name == itemsLabel ? names : groups), fromq(data[name])]);
-                    } else {
-                        //_process(groups, data[name], clause);
-                        ret = dppiUtils.invoking(grouped.each, _process, [groups, data[name], clause]);
-                    }
-                    if (ret)break;
-                }
-                return ret;
-            };
 
             grouped = {
                 cache: cache,
@@ -1120,23 +1072,75 @@
                     return this.cache;
                 }
             };
+            var _process = function (/*Array*/names, /*object*/data, clause) {
+                var ret;
+                names = names.concat();
+                for (var name in data) {
+                    var groups = names.concat(name);
+                    if (isArray(data[name])) {
+                        ret = dppiUtils.invoking(grouped.each, clause, [fromq(name == itemsLabel ? names : groups), fromq(data[name])]);
+                    } else {
+                        //_process(groups, data[name], clause);
+                        ret = dppiUtils.invoking(grouped.each, _process, [groups, data[name], clause]);
+                    }
+                    if (ret)break;
+                }
+                return ret;
+            };
+
+            if (this.items.length == 0)return grouped;
+            //process clause is string example:
+            // var list=[{name:'bona'},{name:'peter'},{name:'kerry'}];
+            // fromq(list).groupBy("name");
+            var fields = clause;
+            clause = isString(clause) ?
+                function (item) {
+                    var ret = [];
+                    fromq(fields, ",").each(function (field) {
+                        ret.push([item[field]]);
+                    });
+                    return ret;
+                } : clause;
+
+            this.each(
+                function (item, index) {
+                    //var gLabel = clause(item, index);
+                    var gLabel = dppiUtils.invoking(callee, clause, [item, index]);
+                    var root = cache, _prior;
+                    if (isArray(gLabel)) {
+                        fromq(gLabel).each(function (label) {
+                            _prior = root;
+                            root = root[label] = root[label] || {};
+                        });
+                        root = _prior;
+                        gLabel = gLabel[gLabel.length - 1];
+                    }
+                    root = root[gLabel] = root[gLabel] || {};
+                    root[itemsLabel] = root[itemsLabel] || [];
+                    //root[itemsLabel].push(item);
+                    root[itemsLabel][root[itemsLabel].length] = item;
+                }
+            );
+
             return grouped;
         },
         max: function (/*Function|Lambda|String field*/clause) {
             clause = clause || function (item) {
-                if (isString(value) && isFloat(item))//process string value is float.
+                if (isString(item) && isFloat(item))//process string value is float.
                     return parseFloat(item);
+                return item;
             };
-            return dppiUtils.invoking(this.max, this.orderBy, [clause], this).last();
+            return dppiUtils.invoking(arguments.callee, "orderBy", [clause], this).last();
             //return this.orderBy(clause).last();
         }
         ,
         min: function (/*Function|Lambda|String field*/clause) {
             clause = clause || function (item) {
-                if (isString(value) && isFloat(item))//process string value is float.
+                if (isString(item) && isFloat(item))//process string value is float.
                     return parseFloat(item);
+                return item;
             };
-            return dppiUtils.invoking(this.min, this.orderBy, [clause], this).first();
+            return dppiUtils.invoking(arguments.callee, "orderBy", [clause], this).first();
             //return this.orderBy(clause).first();
         }
         ,
@@ -1265,10 +1269,15 @@
         // |out:
         // |   1,3,9,9,6
         random: function (/*Number*/count) {
-            var i = 0, ret = [], maxValue = this.items.length - 1, item;
-            for (; i < count; i++) {
-                item = this.elementAt(Math.round(Math.random() * maxValue));
-                if (item)ret[i] = item;
+            var ret = [], maxValue = this.items.length - 1, item, index;
+            for (var i = 0; i < count; i++) {
+                index = Math.round(Math.random() * maxValue);
+                item = this.elementAt(index);
+                //if (item)
+                ret[i] = item;
+                //if(item===undefined){
+                //    console.log("index:",index," array length:",this.count()," item:",item);
+                //}
             }
             return fromq(ret);
         },
@@ -1357,12 +1366,12 @@
         // | fromq([1,2,3]).notIn([2,4],{left:distinct,right:distinct}).each(log); //out:1,3
         // | fromq([1,2,3]).notIn([2,4],"o=>o").each(log); //out:1,3
         // | fromq([1,2,3]).notIn([2,4],{left:"o=>o",right:"o=>o"}).each(log); //out:1,3
-        notIn: function (/*fromq|array*/it,/*lambda|function|string fields|{left:'',right:''}*/distinctClause) {
+        notIn: function (/*fromq|array*/it, /*lambda|function|string fields|{left:'',right:''}*/distinctClause) {
             return inOrNotIn(true).apply(this, arguments);
         },
         //eg:
         // @see notIn
-        in: function (/*fromq|array*/it,/*lambda|function|string fields|{left:'',right:''}*/distinctClause) {
+        in: function (/*fromq|array*/it, /*lambda|function|string fields|{left:'',right:''}*/distinctClause) {
             return inOrNotIn(false).apply(this, arguments);
         }
     };
@@ -1383,8 +1392,8 @@
     fromq.fn.sort = fromq.fn.orderBy;
     fromq.fn.sortBy = fromq.fn.orderBy;
 
-
     fromq.fn.init.prototype = fromq.fn;
+    //fromq.fn.init.constructor = fromq;
 
 
 //static function collection for fromq.utils:
