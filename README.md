@@ -16,6 +16,8 @@ require(["your path/fromq.js"],function(fromq){
       
 本篇只是对fromq.js的各功能调用进行说明与举例。fromq.js源代码已经放置在github上，需要fromq.js源代码请[移步这里](https://github.com/bonashen/fromq).
 
+相关的使用方法，请关注[我的博客,http://www.bonashen.com](http://www.bonashen.com)。
+
 ###1.字符串分隔
 fromq的字符串的默认分隔符为"**,**".
 ```javascript
