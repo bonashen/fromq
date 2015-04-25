@@ -171,7 +171,11 @@
                 lambda_Cache = {};
             }
         },
-        range = function (start, end, step) {
+    //eg:
+    // | range(10);
+    // | range(1,10);
+    // | range(0,26,1,"o=>String.fromCharCode(o+65)");
+        range = function (start, end, step,valueClause) {
             switch (arguments.length) {
                 case 1:
                     end = start;
@@ -188,9 +192,11 @@
                 end = value;
             }
             var ret = [];
+            valueClause = clauseConverter(valueClause,null,function(num){
+                return num;
+            });
             for (var i = start; i < end; i += step) {
-                //ret.push(i);
-                ret[ret.length] = i;
+                ret[ret.length] = dppiUtils.invoking(arguments.callee,valueClause,[i]);
             }
             return fromq(ret);
         },
@@ -351,6 +357,7 @@
         version: '20150416/01',
         vendor: "bonashen.com",
         toArray: function (/*Array*/arr) {
+            arr = arr.items||arr;
             if (isArray(arr)) {
                 for (var i = 0, l = this.count(); i < l; i++) {
                     arr[arr.length] = this.items[i];
@@ -1026,7 +1033,8 @@
         groupBy: function (/*function|Lambda|String fields*/clause) {
             clause = _lambdaUtils.convert(clause);
 
-            var cache = {}, grouped, itemsLabel = "_items";
+            //var cache = {}, grouped, itemsLabel = "_items"; //by tree
+            var cache = [], grouped;  // by array
             var callee = arguments.callee;
 
             grouped = {
@@ -1050,10 +1058,8 @@
                     var callee = arguments.callee;
                     this.each(
                         function (groups, items) {
-                            //var item = clause(groups, items);
                             var item = dppiUtils.invoking(callee, clause, [groups, items]);
                             if (item)
-                            //ret.push(item);
                                 ret[ret.length] = item;
                         });
                     return fromq(ret);
@@ -1064,29 +1070,32 @@
                 // |  each("(g,i,n)=>i.each('o=>console.log(o*n)')",n);
                 each: function (/*Function|Lambda*/clause) {
                     clause = _lambdaUtils.convert(clause, true);
-                    dppiUtils.invoking(arguments.callee, _process, [[], this.cache, clause]);
-                    //_process([], this.cache, clause);
+                    var callee = arguments.callee;
+                    //dppiUtils.invoking(arguments.callee, _process, [[], this.cache, clause]); //by tree
+                    fromq(this.cache).each(function(item){
+                        return dppiUtils.invoking(callee,clause,[fromq(item),fromq(item.items)]);
+                    });
                     return this;
                 },
                 getCache: function () {
                     return this.cache;
                 }
             };
-            var _process = function (/*Array*/names, /*object*/data, clause) {
-                var ret;
-                names = names.concat();
-                for (var name in data) {
-                    var groups = names.concat(name);
-                    if (isArray(data[name])) {
-                        ret = dppiUtils.invoking(grouped.each, clause, [fromq(name == itemsLabel ? names : groups), fromq(data[name])]);
-                    } else {
-                        //_process(groups, data[name], clause);
-                        ret = dppiUtils.invoking(grouped.each, _process, [groups, data[name], clause]);
-                    }
-                    if (ret)break;
-                }
-                return ret;
-            };
+            //var _process = function (/*Array*/names, /*object*/data, clause) { // by tree
+            //    var ret;
+            //    names = names.concat();
+            //    for (var name in data) {
+            //        var groups = names.concat(name);
+            //        if (isArray(data[name])) {
+            //            ret = dppiUtils.invoking(grouped.each, clause, [fromq(name == itemsLabel ? names : groups), fromq(data[name])]);
+            //        } else {
+            //            //_process(groups, data[name], clause);
+            //            ret = dppiUtils.invoking(grouped.each, _process, [groups, data[name], clause]);
+            //        }
+            //        if (ret)break;
+            //    }
+            //    return ret;
+            //};
 
             if (this.items.length == 0)return grouped;
             //process clause is string example:
@@ -1102,26 +1111,48 @@
                     return ret;
                 } : clause;
 
-            this.each(
-                function (item, index) {
-                    //var gLabel = clause(item, index);
-                    var gLabel = dppiUtils.invoking(callee, clause, [item, index]);
-                    var root = cache, _prior;
-                    if (isArray(gLabel)) {
-                        fromq(gLabel).each(function (label) {
-                            _prior = root;
-                            root = root[label] = root[label] || {};
-                        });
-                        root = _prior;
-                        gLabel = gLabel[gLabel.length - 1];
-                    }
-                    root = root[gLabel] = root[gLabel] || {};
-                    root[itemsLabel] = root[itemsLabel] || [];
-                    //root[itemsLabel].push(item);
-                    root[itemsLabel][root[itemsLabel].length] = item;
-                }
-            );
+            //this.each(    //by tree
+            //    function (item, index) {
+            //        //var gLabel = clause(item, index);
+            //        var gLabel = dppiUtils.invoking(callee, clause, [item, index]);
+            //        var root = cache, _prior;
+            //        if (isArray(gLabel)) {
+            //            fromq(gLabel).each(function (label) {
+            //                _prior = root;
+            //                root = root[label] = root[label] || {};
+            //            });
+            //            root = _prior;
+            //            gLabel = gLabel[gLabel.length - 1];
+            //        }
+            //        root = root[gLabel] = root[gLabel] || {};
+            //        root[itemsLabel] = root[itemsLabel] || [];
+            //        //root[itemsLabel].push(item);
+            //        root[itemsLabel][root[itemsLabel].length] = item;
+            //    }
+            //);
 
+            var add = function (root, arr) {  //by array
+                var found = null;
+                fromq(root).each(function (item) {
+                    if (fromq(item).equal(arr)) {
+                        found = item;
+                        return true;
+                    }
+                });
+                if (!found) found = root[root.length] = arr;
+                else {
+                    found.items = found.items.concat(arr.items);
+                }
+            };
+
+            this.each(   //by array
+                    function (item, index) {
+                        var gLabel = dppiUtils.invoking(callee, clause, [item, index]);
+                        if(!isArray(gLabel))gLabel=[].concat(gLabel);
+                        gLabel.items = [].concat(item);
+                        add(cache,gLabel);
+                    }
+            );
             return grouped;
         },
         max: function (/*Function|Lambda|String field*/clause) {
@@ -1373,6 +1404,21 @@
         // @see notIn
         in: function (/*fromq|array*/it, /*lambda|function|string fields|{left:'',right:''}*/distinctClause) {
             return inOrNotIn(false).apply(this, arguments);
+        },
+        equal: function (/*fromq|array*/it, /*lambda|function*/compareClause) {
+            var ret = false, callee = arguments.callee;
+            it = fromq(it);
+            compareClause = clauseConverter(compareClause, null, function (a, b) {
+                return a === b;
+            });
+            ret = this.items.length === it.items.length;
+            if (ret) {
+                this.each(function (item, index) {
+                    ret = dppiUtils.invoking(callee, compareClause, [item, it.elementAt(index)]);
+                    if (!ret) return true;
+                });
+            }
+            return ret;
         }
     };
 
