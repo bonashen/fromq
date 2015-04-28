@@ -48,52 +48,52 @@
                 } else return null;
             },
             getCallerExtValues: function (caller) {
-                var extCount = this.getCallerExtCount(caller);
+                //var extCount = this.getCallerExtCount(caller);
                 var defNames = this.getFunctionArgumentList(caller);
-                var extValues = [];
-                if (extCount) {
-                    extValues = Array.prototype.slice.call(caller.arguments, defNames.length);
-                }
-                return extValues;
+                //var extValues = [];
+                //if (extCount) {
+                //    extValues = Array.prototype.slice.call(caller.arguments, defNames.length);
+                return Array.prototype.slice.call(caller.arguments, defNames.length);
+                //}
+                //return extValues;
             },
             getCallerExtCount: function (caller) {
-                var fn = caller;
-                //console.log(fn);
-                var defNames = this.getFunctionArgumentList(fn);
-                var callParamsLength = fn.arguments.length; //Array.prototype.slice.call(fn.arguments);
-                return callParamsLength - defNames.length;
+                return caller.arguments.length - this.getFunctionArgumentList(caller).length;
             },
             invoking: function (/*Function*/fnCaller, /*Function|Lambda|String*/clause, /*Array*/params, _self) {
                 var extValues = this.getCallerExtValues(fnCaller);
                 clause = clauseConverter(clause, null, null);
                 if (_self && isString(clause))clause = _self[clause];
-                return clause.apply(_self, params.concat(extValues));
+                return clause.apply(_self, (params || []).concat(extValues));
             }
         },
         lambda_Cache = {},
         lambda = function (/*String*/condition, /*Boolean*/isClosure) {
-            var cStr = (condition || this.condition).split('=>');
-
-            isClosure = isClosure || this.isClosed || false;
-
-            if (cStr.length < 2)return null;
-            var getCachefn = function (/**/codeBody) {
-                    var ret = null, fnObj = lambda_Cache[codeBody];
+            var getCachefn = function (/**/cacheName) {
+                    var ret = null, fnObj = lambda_Cache[cacheName];
                     if (fnObj) {
                         ret = fnObj.method;
                         fnObj.num += 1;
                     }
                     return ret;
                 },
-                buildfn = function (body, lambdaCode) {
-                    var fn = getCachefn(lambdaCode);
-                    if (!fn) {
-                        fn = Function.apply(null, body);
-                        lambda_Cache[lambdaCode] = {method: fn, num: 1};
-                    }
+                buildfn = function (body, cacheName) {
+                    var fn = Function.apply(null, body);
+                    lambda_Cache[cacheName] = {method: fn, num: 1};
                     return fn;
                     //return Function.apply(null, body);
                 };
+
+            isClosure = isClosure || false;
+            var cacheName = condition + " |=| isClosure:" + isClosure;
+            var fn = getCachefn(cacheName);
+            if (fn) {
+                return fn;
+            }
+
+            var cStr = condition.split('=>');
+            if (cStr.length < 2)return null;
+
             var fnBody = [];
             if (cStr[0].indexOf('(') === -1) {
                 fnBody = [cStr[0]];
@@ -113,22 +113,8 @@
                 str.push("){");
                 str.push(codeBody);
                 str.push("}).apply(this,arguments)");
-                //str.push("}).call(this");
-                //if (names.length > 0)str.push(',');
-                //str.push(names);
-                //str.push(")");
                 codeBody = str.join('');
-                //codeBody = " (function(" + names + "){" + codeBody + "}).call(this" + (names.length> 0 ? +("," + names) : "") + ")";
-                //console.log(codeBody);
             }
-            //support lambda function cache
-            var lambdaCode =
-                []
-                    .concat(["("])
-                    .concat(fnBody.join(","))
-                    .concat([")=>"])
-                    .concat(codeBody)
-                    .join("");
 
             fnBody.push(
                 []
@@ -137,10 +123,7 @@
                     .concat(codeBody)
                     .concat(";")
                     .join(""));
-
-            //fnBody.push("\treturn " + codeBody + " ;");
-            //console.log(fnBody);
-            return buildfn(fnBody, lambdaCode);
+            return buildfn(fnBody, cacheName);
         },
 
         _lambdaUtils = {
@@ -148,7 +131,6 @@
                 reOneArg.lastIndex = 0;
                 reManyArgs.lastIndex = 0;
                 return isString(it) && ((reOneArg.exec(it) || reManyArgs.exec(it)) !== null);
-                //return isString(it) && it.split('=>').length >= 2;// lambda("o=>o.split('=>').length>=2")(it);
             },
             compile: function (it, isClosure) {
                 return lambda(it, isClosure);
@@ -171,11 +153,12 @@
                 lambda_Cache = {};
             }
         },
+        isLambda = _lambdaUtils.isLambda,
     //eg:
     // | range(10);
     // | range(1,10);
     // | range(0,26,1,"o=>String.fromCharCode(o+65)");
-        range = function (start, end, step,valueClause) {
+        range = function (start, end, step, valueClause) {
             switch (arguments.length) {
                 case 1:
                     end = start;
@@ -192,11 +175,11 @@
                 end = value;
             }
             var ret = [];
-            valueClause = clauseConverter(valueClause,null,function(num){
+            valueClause = clauseConverter(valueClause, null, function (num) {
                 return num;
             });
             for (var i = start; i < end; i += step) {
-                ret[ret.length] = dppiUtils.invoking(arguments.callee,valueClause,[i]);
+                ret[ret.length] = dppiUtils.invoking(arguments.callee, valueClause, [i]);
             }
             return fromq(ret);
         },
@@ -207,9 +190,10 @@
             }
             return fromq(ret);
         },
-        random = function (count, maxValue) {
+        random = function (maxValue, count) {
             var i = 0, ret = [];
             maxValue -= 1;
+            count = count || 1;
             for (; i < count; i++) {
                 ret[i] = Math.round(Math.random() * maxValue);
             }
@@ -221,6 +205,44 @@
             }
             return field;
         },
+    //转换单个唯一条件至值对象
+    // |eg:
+    // |keyValueClauseConverter("o=>o") //{left:"o=>o",right:"o=>o"}
+    // |var distinct = function(item,index){return item};
+    // |keyValueClauseConverter(distinct) //{left:distinct,right:distinct}
+    // |keyValueClauseConverter("value") //{left:"o=>o['value']",right:"o=>o['value']"}
+    // |keyValueClauseConverter("leftField,rightField") //{left:"o=>o['leftField']",right:"o=>o['rightField']"}
+        keyValueClauseConverter = function (clause) {
+            //default
+            if (clause == null) {
+                clause = {};
+            }
+            //is lambda
+            clause = _lambdaUtils.convert(clause);
+
+            if (isString(clause)) {
+                var rdsq = fromq(clause).trim();
+                clause = {
+                    left: fieldToLambda(rdsq.first()),
+                    right: fieldToLambda(rdsq.last())
+                };
+            }
+
+            if (isFunction(clause)) {
+                clause = {left: clause, right: clause};
+            }
+
+            if (clause) {
+                var lm = "o=>o";
+                var left = clause.left || lm;
+                left = fieldToLambda(left);
+                clause.left = _lambdaUtils.convert(left);
+                var right = clause.right || lm;
+                right = fieldToLambda(right);
+                clause.right = _lambdaUtils.convert(right);
+            }
+            return clause;
+        },
         inOrNotIn = function (notIn) {
             //eg:
             // | var distinct = function(item,index){return item;};
@@ -230,67 +252,223 @@
             // | fromq([1,2,3]).in([2,4],{left:"o=>o",right:"o=>o"}).each(log);
             // | fromq([1,2,3]).notIn([2,4],"o=>o").each(log);
             return function (/*fromq|array*/it, /*lambda|function|string fields|{left:'',right:''}*/distinctClause) {
-                var _this = this, map = {};
-                var ret = [], callee = arguments.callee;
-
-                //default
-                if (distinctClause == null) {
-                    distinctClause = {};
-                }
-                //is lambda
-                distinctClause = _lambdaUtils.convert(distinctClause);
-
-                if (isString(distinctClause)) {
-                    var rdsq = fromq(distinctClause).trim();
-                    distinctClause = {
-                        left: fieldToLambda(rdsq.first()),
-                        right: fieldToLambda(rdsq.last())
-                    };
-                }
-
-                if (isFunction(distinctClause)) {
-                    distinctClause = {left: distinctClause, right: distinctClause};
-                }
-
-                if (distinctClause) {
-                    var lm = "o=>o";
-                    var left = distinctClause.left || lm;
-                    left = fieldToLambda(left);
-                    distinctClause.left = _lambdaUtils.convert(left);
-                    var right = distinctClause.right || lm;
-                    right = fieldToLambda(right);
-                    distinctClause.right = _lambdaUtils.convert(right);
-                }
-
-                //console.log(distinctClause);
-
-                dppiUtils.invoking(callee, "distinct", [distinctClause.right, true], fromq(it))
-                    .each("(o,i,m)=>m[o]=true", map);
-
+                var _this = this, dict = {};
+                var ret = [];
+                distinctClause = keyValueClauseConverter(distinctClause);
+                fromq(it).let(dict).distinct(distinctClause.right, true)
+                    .each("(o,i,v)=>v[o]=true");
                 _this.each(
-                    function (item, index) {
-                        if (notIn ^ map[dppiUtils.invoking(callee, distinctClause.left, [item, index])]) {
+                    function (item, index, letvar) {
+                        if (notIn ^ dict[distinctClause.left(item, index, letvar)]) {
                             ret[ret.length] = item;
                         }
                     }
                 );
-                map = null;
-                return fromq(ret);
+                dict = null;
+                return fromq(this, ret);
             }
+        },
+        lastOrIndexOf = function (isLastIndexOf) {
+            return function (/*Function|Lambda|value*/clause) {
+                clause = _lambdaUtils.convert(clause);
+
+                if (!isFunction(clause)) {
+                    var value = clause;
+                    clause = function (item) {
+                        return item === value;
+                    }
+                }
+                var ret = -1;
+                this.each(function (item, index, letvar) {
+                    if (clause(item, index, letvar)) {
+                        ret = index;
+                        return true;
+                    }
+                }, isLastIndexOf);
+                return ret;
+            }
+        }
+        ,
+        extend = function (dest, source) {
+            var _doExtend = function (dest, source) {
+                for (var key in source) {
+                    dest[key] = source[key];
+                }
+            };
+            dest = dest || {};
+            source = source || {};
+            if (!isArray(source))source = [].concat(source);
+            for (var i = 0, l = source.length; i < l; i++) {
+                _doExtend(dest, source[i]);
+            }
+            return dest;
         };
 
+
+    var grouped = {
+        //cache: cache,
+        //example:
+        // select(function(/*object*/g,/*fromq*/i){
+        //    f=i.select("o=>o.age");
+        //    ret= {group:g minAge:f.min(),maxAge:f.max(),count:f.count(),sum:f.sum(),items:i.toArray()};
+        //    return ret;
+        // });
+        select: function (/*Function|Lambda*/clause) {
+            clause = _lambdaUtils.convert(clause);
+            var ret = [], item;
+            this.each(
+                function (group, items) {
+                    item = clause(group, items);
+                    if (item !== undefined)
+                        ret[ret.length] = item;
+                });
+            return fromq(ret);
+        },
+        //example:
+        // |  each(function(/*object*/group,/*fromq*/items){});
+        // |  each("(g,i)=>i.each('o=>console.log(o)')");
+        each: function (/*Function|Lambda*/clause) {
+            clause = _lambdaUtils.convert(clause, true);
+            for (var key in this.cache) {
+                if (clause(key, fromq(this.cache[key])))break;
+            }
+            return this;
+        },
+        getCache: function () {
+            return this.cache;
+        }
+    };
+
+    var paginger = {
+        //cache: null,
+        pageNo: 0,
+        nextCount: 15,
+        getCache: function () {
+            return this.cache;
+        },
+        first: function () {
+            return this.gotoPage(1);
+        },
+        last: function () {
+            return this.gotoPage(this.pageCount());
+        },
+        next: function () {
+            this.pageNo += 1;
+            return this.gotoPage(this.pageNo);
+        },
+        prior: function () {
+            this.pageNo -= 1;
+            return this.gotoPage(this.pageNo);
+        },
+        current: function () {
+            return this.gotoPage(this.pageNo);
+        },
+        isTail: function () {
+            return this.pageNo >= this.cache.count();
+        },
+        isTop: function () {
+            return this.pageNo <= 1;
+        },
+        reset: function () {
+            this.pageNo = 0;
+        },
+        pageCount: function () {
+            return Math.ceil(this.getCacheCount() / this.getNextCount());
+        },
+        //currentPageNumber: function () {
+        //    var postion = this.postion <= 0 ? 1 : this.postion;
+        //    var ret = Math.ceil(this.postion / this.getNextCount());
+        //    ret = ret > this.pageCount() ? this.pageCount() : ret;
+        //    return ret;
+        //},
+        getPageNo: function (/*Object*/item) {
+            var ret = -1, start;
+            ret = this.pageCount();
+            if (item && ret > 0) {
+                start = this.indexOf(item) + 1;
+                if (start > 0) {
+                    ret = Math.ceil(start / this.getNextCount());
+                    ret = ret > this.pageCount() ? this.pageCount() : ret;
+                }
+            } else {
+                ret = ret > 0 ? this.pageNo : ret;
+            }
+            return ret;
+        },
+        gotoPage: function (/*Number*/pageNumber) {
+            this.pageNo = pageNumber;
+            var start = (pageNumber >= 1 ? pageNumber - 1 : 0) * this.getNextCount();
+            return this.cache.takeRange(start, start + this.getNextCount());
+        },
+        setNextCount: function (/*Number*/count) {
+            this.nextCount = count;
+            this.nextCount = this.nextCount < 1 ? 15 : this.nextCount;
+            //this.reset();
+        },
+        getNextCount: function () {
+            return this.nextCount;
+        },
+        indexOf: function (it) {
+            return this.cache.indexOf(it);
+        },
+
+        //| example:
+        //| each(callback);
+        //| callback = function(/*fromq*/rdsq,/*Number*/pageNumber){return false;};
+        //| callback = "(rdsq,i)=>console.log('pageNumber:',i);rdsq.each('o=>console.log(o)')";
+        //|
+        each: function (/*Function|Lambda*/callback) {
+            callback = clauseConverter(callback, null, null, true);
+            var pageCount = this.pageCount();
+            for (var i = 1; i <= pageCount; i++) {
+                if (callback(this.gotoPage(i), i))break;
+            }
+            return this;
+        },
+        //example:
+        // | select(clause);
+        // | clause = function(/*fromq*/rdsq,/*Number*/pageNo){return {.....};};
+        // | clause = "(rdsq,pageNo)=>{pageNo:pageNo,count:rdsq.count()....}";
+        select: function (/*function|Lambda*/clause) {
+            clause = clauseConverter(clause, null, function (rdsq, pageNo) {
+                return {pageNo: pageNo, items: rdsq.toArray()};
+            });
+            if (!isFunction(clause))
+                err("select=>clause must be function.");
+            var item, ret = [];
+            this.each(
+                function (rdsq, pageNo) {
+                    item = clause(rdsq, pageNo);
+                    if (item!==undefined)
+                        ret[ret.length] = item;
+                }
+            );
+            return fromq(ret);
+        },
+        getCacheCount: function () {
+            return this.cache.count();
+        },
+        isEmpty: function () {
+            return this.cache.isEmpty();
+        }
+    };
 
     //example
     // |   clauseConverter(clause,function(fieldsq){return ""},function(){return;});
     // |   clauseConverter(clause,null,function(){return;});
     // |   fieldsProcesser=function(/*fromq*/ fieldsq){return "o=>o"}//return lambda;
     var clauseConverter = function (clause, fieldsProcesser, defaultFunction, isClosure) {
-        clause = _lambdaUtils.convert(clause, isClosure);
+        if (isFunction(clause))return clause;
+        if (isLambda(clause))return lambda(clause, isClosure);
         if (isString(clause) && fieldsProcesser !== null) {
             var value = fieldsProcesser(fromq(clause));
-            clause = isString(value) ? _lambdaUtils.convert(value) : value;
+            clause = isString(value) ? lambda(value, isClosure) : value;
+            return clause;
         }
-        if (!isFunction(clause) && defaultFunction !== null)clause = defaultFunction;
+        if (defaultFunction !== null) {
+            if (isLambda(defaultFunction))return lambda(defaultFunction, isClosure);
+            return defaultFunction;
+        }
         return clause;
     };
 
@@ -325,73 +503,83 @@
 
     var fromq = function (/*Array|String|Lambda|RegExp*/it, /*String|Boolean*/splitChar) {
         //for lambda
-        if (_lambdaUtils.isLambda(it))
-            return _lambdaUtils.compile(it, arguments[1] || false);
+        if (isLambda(it))
+            return lambda(it, arguments[1] || false);
         //for String :"1,2,3,4"
         if (isString(it))
-            return new fromq.fn.init(it.split(splitChar || ","));
+            return new fromq.fn._init(it.split(splitChar || ","));
         //for fromq object
-        if (it instanceof fromq)return new fromq.fn.init(it.toArray()/*.concat()*/);
+        // |fromq(fromq([1,2,3]))
+        // |fromq(fromq([1,2,3]),[4,5,6])
+        if (it instanceof fromq) {
+            var arr = arguments[1];
+            var ret = it;
+            if (arr !== null) {
+                ret = new fromq.fn._init(arr);
+                ret.let(it.letvar);//set let variable
+            }
+            return ret;
+        }
 
         //for RegExp
         //example
         // |  fromq(/ab*/g,"abdfabhg").each("o=>console.log(o)");
         if (it instanceof RegExp) {
             var str = arguments[1];
-            var ret = new fromq.fn.init(it);
+            var ret = new fromq.fn._init(it);
             if (isString(str)) {
                 ret = ret.match(str);
             }
             return ret;
         }
         //for array object
-        return new fromq.fn.init(it);
+        return new fromq.fn._init(it);
     };
 
     fromq.fn = fromq.prototype = {
-        init: function (/*Array|RegExp*/it) {
+        _init: function (/*Array|RegExp*/it) {
             this.items = it;
             this.regexp = it;
             this.utils = utils;
+            this.letvar = {};
         },
-        version: '20150416/01',
+        version: '20150428/01',
         vendor: "bonashen.com",
-        toArray: function (/*Array*/arr) {
-            arr = arr.items||arr;
-            if (isArray(arr)) {
-                for (var i = 0, l = this.count(); i < l; i++) {
-                    arr[arr.length] = this.items[i];
+        toArray: function (/*Array*/arr, /*Boolean*/overwrite) {
+            if (arr) {
+                arr = arr.items || arr;
+                overwrite = overwrite === undefined ? true : overwrite;
+                if (isArray(arr)) {
+                    if (overwrite)arr.length = 0;
+                    this.each(function (item, index) {
+                        arr[overwrite ? index : arr.length] = item;
+                    });
                 }
             }
             return this.items;
         },
-        into: function (/*Array*/arr) {
-            this.toArray(arr);
+        into: function (/*Array*/arr, /*Boolean*/overwrite) {
+            this.toArray(arr, overwrite);
             return this;
         },
         //example1:
         // where(function(item,index){ });
         // example2:
         // where("(a,i)=>a")
-        // | where("(a,i,n)=>a<n",n);
+        // | let(4).where("(a,i,n)=>a<n");
         where: function (/*Function|Lambda*/clause) {
-            //where: function (clause) {
             clause = clauseConverter(clause, null, function () {
                 return true
             });
-            var newArray = [], it, callee = arguments.callee;
+            var newArray = [], it;
             // The clause was passed in as a Method that return a Boolean
-            for (var i = 0; i < this.items.length; i++) {
-                //it = clause(this.items[index], index);
-                it = dppiUtils.invoking(callee, clause, [this.items[i], i], null);
-                if (it === undefined) {
-                    err("where clause function must return  value!");
+            this.each(function (item, index, letvar) {
+                it = clause(item, index, letvar);
+                if (it === true) {
+                    newArray[newArray.length] = item;
                 }
-                if (it) {
-                    newArray[newArray.length] = this.items[i];
-                }
-            }
-            return fromq(newArray);
+            });
+            return fromq(this, newArray);
         },
         //example:
         // select(function(item,index){return {name:item.name,id:index};});
@@ -400,33 +588,27 @@
         // select('(o,i)=>{name:o.name,id:i}');
 
         select: function (/*Function|Lambda|String fields*/clause) {
-            clause = _lambdaUtils.convert(clause);
-
-            var fields = clause;
-            clause = isString(clause) ?
-                function (item) {
-                    var ret = {};
-                    var f = fromq(fields);
-                    f.each(function (field) {
-                        if (f.count() > 1) {
-                            ret[field] = item[field];
-                        } else ret = item[field];
-                    });
-                    return ret;
-                } : clause;
-
-            if (!isFunction(clause))
-                err("select=>clause must be function.");
+            clause = clauseConverter(clause, function (rdsq) {
+                var ret = ["o=>o{"];
+                rdsq.each(function (field) {
+                    ret.push(field);
+                    ret.push(":['");
+                    ret.push(field);
+                    ret.push("']");
+                    ret.push(",");
+                });
+                ret.length = ret.length - 1;
+                ret.push("}");
+                return ret.join("");
+            }, "o=>o");
 
             var newArray = [];
-            var callee = arguments.callee;
-            this.each(function (item, index) {
-                item = dppiUtils.invoking(callee, clause, [item, index]);//clause(item,index);
-                if (item)
-                //newArray.push(item);
+            this.each(function (item, index, letvar) {
+                item = clause(item, index, letvar);
+                if (item !== null)
                     newArray[newArray.length] = item;
             });
-            return fromq(newArray);
+            return fromq(this, newArray);
         },
 
         //example:
@@ -439,7 +621,7 @@
 
         orderBy: function (/*Function|Lambda|String fields*/clause, /*Boolean*/customCompare) {
             clause = _lambdaUtils.convert(clause);
-            var tempArray = this.items.concat();
+            var tempArray = this.items;//.concat();
 
             customCompare = customCompare || false;
 
@@ -462,16 +644,19 @@
                 return item;
             };
 
-            var callee = arguments.callee;
-            return fromq(
-                tempArray.sort(customCompare == false ? function (a, b) {
-                    var x = dppiUtils.invoking(callee, clause, [a]);//clause(a);
-                    var y = dppiUtils.invoking(callee, clause, [b]);//clause(b);
+            var letvar = this.letvar;
+            var getComparefn = function (customCompare) {
+                return customCompare == false ? function (a, b) {
+                    var x = clause(a, letvar);
+                    var y = clause(b, letvar);
                     return ((x < y) ? -1 : ((x > y) ? 1 : 0));
                 } : function (a, b) {
-                    return dppiUtils.invoking(callee, clause, [a, b]);
-                })//clause
-            );
+                    return clause(a, b, letvar);
+                }
+            };
+            var myCompare = getComparefn(customCompare);
+
+            return fromq(this, tempArray.sort(myCompare));
         },
         //example:
         // var list=[{name:'bona',age:38},{name:'peter',age:11}];
@@ -495,7 +680,6 @@
                     var ret = 0;
                     for (var i = 0; i < option.length; i++) {
                         var label = option[i], y = a[label], x = b[label];
-                        //console.log(x, y);
                         if (ret == 0) {
                             ret = x < y ? -1 : x > y ? 1 : 0;
                         } else break;
@@ -507,15 +691,15 @@
             clause = clause ? clause : function (item) {
                 return item;
             };
-            var callee = arguments.callee;
-            return fromq(
+            var letvar = this.letvar;
+            return fromq(this,
                 tempArray.sort(customCompare == false ? function (a, b) {
-                    var x = dppiUtils.invoking(callee, clause, [b]);//clause(b);
-                    var y = dppiUtils.invoking(callee, clause, [a]);//clause(a);
+                    var x = clause(b, letvar);
+                    var y = clause(a, letvar);
                     return ((x < y) ? -1 : ((x > y) ? 1 : 0));
                 } : function (a, b) {
-                    return dppiUtils.invoking(callee, clause, [a, b])
-                })//clause)
+                    return clause(a, b, letvar);
+                })
             );
         },
         //example:
@@ -537,12 +721,11 @@
                 return ret.join("");
             }, null);
 
-            var r = [], callee = arguments.callee;
-            this.each(function (item, index) {
-                r = r.concat(dppiUtils.invoking(callee, clause, [item, index]));//clause(item, index));
+            var r = [];
+            this.each(function (item, index, letvar) {
+                r[r.length] = clause(item, index, letvar);
             });
-            return fromq(r);
-
+            return fromq(this, r);
         },
 
         //example:
@@ -552,14 +735,10 @@
         count: function (/*Function|Lambda*/clause) {
             clause = _lambdaUtils.convert(clause);
 
-            /*if (!isFunction(clause) && _lambdaUtils.isLambda(clause)) {
-             clause = _lambdaUtils.compile(clause);
-             }*/
             if (clause == null)
                 return this.items.length;
             else
-            //return this.where(clause).items.length;
-                return dppiUtils.invoking(arguments.callee, this.where, [clause], this).items.length;
+                return this.where(clause).items.length;
         },
         //example:
         // distinct(function(item){return item});
@@ -570,25 +749,23 @@
         // distinct("field",true);
         distinct: function (/*Function|Lambda|String field*/clause, /*boolean*/distinctValue) {
             clause = clauseConverter(clause, function (fieldsq) {
-                //return "o=>o['" + fieldsq.trim()/*.select("o=>o")*/.first() + "']";
                 return fieldToLambda(fieldsq.trim().first());
             }, function (item) {//no clause,then return item value.
                 return item;
             });
             distinctValue = distinctValue || false;
-            var item;
+            var d_item;
             var dict = {};
             var retVal = [];
-            for (var i = 0; i < this.items.length; i++) {
-                item = dppiUtils.invoking(arguments.callee, clause, [this.items[i], i]);//clause(this.items[i], i);
-                if (dict[item] == null) {
-                    dict[item] = true;
-                    retVal[retVal.length] = distinctValue ? item : this.items[i];
-                    //retVal.push(distinctValue ? item : this.items[i]);
+            this.each(function (item, index, letvar) {
+                d_item = clause(item, index, letvar);
+                if (dict[d_item] == null) {
+                    dict[d_item] = true;
+                    retVal[retVal.length] = distinctValue ? d_item : item;
                 }
-            }
+            });
             dict = null;
-            return fromq(retVal);
+            return fromq(this, retVal);
         },
         //example:
         // like where
@@ -600,10 +777,11 @@
 
         any: function (/*Function|Lambda*/clause) {
             clause = _lambdaUtils.convert(clause);
-            var callee = arguments.callee, ret = false;
+            var
+                ret = false;
             if (clause)
-                this.each(function (item, index) {
-                    ret = dppiUtils.invoking(callee, clause, [item, index]);
+                this.each(function (item, index, letvar) {
+                    ret = clause(item, index, letvar);
                     return ret;
                 });
             else
@@ -622,10 +800,10 @@
 
         all: function (/*Function|Lambda*/clause) {
             clause = _lambdaUtils.convert(clause);
-            var callee = arguments.callee, ret = false;
+            var ret = false;
             if (clause && !this.isEmpty())
-                this.each(function (item, index) {
-                    ret = !dppiUtils.invoking(callee, clause, [item, index]);
+                this.each(function (item, index, letvar) {
+                    ret = !clause(item, index, letvar);
                     return ret;
                 });
             else ret = this.isEmpty();
@@ -635,7 +813,7 @@
             var retVal = [];
             for (var index = this.items.length - 1; index > -1; index--)
                 retVal[retVal.length] = this.items[index];
-            return fromq(retVal);
+            return fromq(this, retVal);
         },
         //example:
         // like where
@@ -645,9 +823,7 @@
 
         first: function (/*Function|Lambda*/clause) {
             if (clause != null) {
-                //return this.where(clause).first();
-                var callee = arguments.callee;
-                return dppiUtils.invoking(callee, this.where, [clause], this).first();
+                return this.where(clause).first();
             }
             else {
                 // If no clause was specified, then return the First element in the Array
@@ -665,14 +841,12 @@
 
         last: function (/*Function|Lambda*/clause) {
             if (clause != null) {
-                //return this.where(clause).last();
-                return dppiUtils.invoking(arguments.callee, this.where, [clause], this).last();
+                return this.where(clause).last();
             }
             else {
                 // If no clause was specified, then return the First element in the Array
                 if (this.items.length > 0)
                     return this.elementAt(this.items.length - 1);
-                //return this.items[this.items.length - 1];
                 else
                     return null;
             }
@@ -684,7 +858,7 @@
         //      连接，不过滤相同项
         concat: function (/*Array|fromq*/second) {
             var arr = second.items || second;
-            return fromq(this.items.concat(arr));
+            return fromq(this, this.items.concat(arr));
         },
 
         //description:
@@ -695,10 +869,7 @@
         // union(secondArray,"o=>o");
         // union(secondArray,"fieldName");
         union: function (/*Array|fromq*/second, /*Function|lambda|String FieldName*/clause) {
-            //clause = _lambdaUtils.convert(clause);
-            //return this.concat(second).distinct(clause);
-            var ret = this.concat(second);
-            return dppiUtils.invoking(arguments.callee, ret.distinct, [clause], ret);
+            return this.concat(second).distinct(clause);
         },
         //description:
         //      相交
@@ -719,25 +890,22 @@
                 })(clause);
             }
 
-            var callee = arguments.callee;
-
-            var leftq = dppiUtils.invoking(callee, this.distinct, [clause], this);
+            var leftq = this.distinct(clause);
             var result = [], map = {};
-            var rightq = dppiUtils.invoking(callee, this.distinct, [clause, true], fromq(second));
+            var rightq = fromq(this, second).distinct(clause, true);
 
             rightq.each(function (item) {
                 map[item] = true;
             });
 
             leftq.each(
-                function (item) {
-                    if (map[dppiUtils.invoking(callee, clause, [item])])
-                    //result.push(item);
+                function (item, index, letvar) {
+                    if (map[clause(item, index, letvar)])
                         result[result.length] = item;
                 }
             );
             map = null;
-            return fromq(result);
+            return fromq(this, result);
         },
         //description:
         //      与非,取两个数组不相交的值
@@ -748,8 +916,6 @@
 
         except: function (/*Array|fromq*/second, /*Function|lambda|String FieldName*/clause) {
             clause = _lambdaUtils.convert(clause);
-
-            var callee = arguments.callee;
 
             if (isString(clause)) {
                 clause = (function (clause) {
@@ -789,25 +955,22 @@
 
             //下面代码是通过排除交叉集的方法实现
 
-            var unionq = dppiUtils.invoking(callee, this.union, [second, clause], this),
-                intersectq = dppiUtils.invoking(callee, this.intersect, [second, clause], this);
+            var unionq = this.union(second, clause),
+                intersectq = this.intersect(second, clause);
 
             var result = [], map = {};
-
-            dppiUtils.invoking(callee, this.distinct, [clause, true], intersectq).
-                //    intersectq.distinct(clause, true).
+            intersectq.distinct(clause, true).
                 each(function (item) {
                     map[item] = true;
                 });
             unionq.each(
-                function (item) {
-                    if (map[dppiUtils.invoking(callee, clause, [item])] !== true)
-                    //result.push(item);
+                function (item, index, letvar) {
+                    if (map[clause(item, index, letvar)] !== true)
                         result[result.length] = item;
                 }
             );
             map = null;
-            return fromq(result);
+            return fromq(this, result);
         },
         defaultIfEmpty: function (defaultValue) {
             if (this.items.length == 0) {
@@ -834,15 +997,17 @@
         //	|		});
         // each("(o,i)=>(function(item,index){console.log(item,'\t',index);})(o,i) ");
 
-        each: function (/*function|Lambda*/callback) {
+        each: function (/*function|Lambda*/callback, /*boolean*/backwards) {
             callback = _lambdaUtils.convert(callback, true);
-
-            var callee = arguments.callee;
-            for (var i = 0; i < this.items.length; i++) {
-                //if (callback(this.items[i], i))break;
-                if (dppiUtils.invoking(callee, callback, [this.items[i], i]))break;
+            var
+                items = this.items;
+            if (backwards) {
+                for (var i = items.length; i >= 0; --i)if (callback(items[i], i, this.letvar))break;
             }
-            return fromq(this.items);
+            else for (var i = 0, l = items.length; i < l; ++i) {
+                if (callback(items[i], i, this.letvar))break;
+            }
+            return this;
         },
 
         //example1:
@@ -861,22 +1026,20 @@
         takeRange: function (/*int*/start, /*int*/ end, /*function|Lambda*/clause) {
             clause = _lambdaUtils.convert(clause);
 
-            var result = clause ? dppiUtils.invoking(arguments.callee, this.where, [clause], this) : this;
+            var result = clause ? this.where(clause) : this;
 
             end = end || result.items.length;
             end = end > result.items.length ? result.items.length : end;
             start = start || 0;
 
-            return fromq(result.items.slice(start, end));
+            return fromq(this, result.items.slice(start, end));
 
         },
         take: function (/*number*/top, /*function|Lambda*/clause) {
-
-            return dppiUtils.invoking(arguments.callee, this.takeRange, [0, top, clause], this);
-
+            return this.takeRange(0, top, clause);
         },
         skip: function (/*number*/count, /*function|Lambda*/clause) {
-            return dppiUtils.invoking(arguments.callee, this.takeRange, [count, this.count(), clause], this);
+            return this.takeRange(count, this.count(), clause);
         },
 
         paging: function (/*Number*/nextCount, /*Function|Lambda*/clause) {
@@ -884,128 +1047,11 @@
             clause = clauseConverter(clause, null, function () {
                 return true;
             });
-            var _self = this, callee = arguments.callee;
-
-            var paginger = {
-                cache: null,
-                pageNo: 0,
-                nextCount: 15,
-                getCache: function () {
-                    return this.cache;
-                },
-                first: function () {
-                    return this.gotoPage(1);
-                },
-                last: function () {
-                    return this.gotoPage(this.pageCount());
-                },
-                next: function () {
-                    this.pageNo += 1;
-                    return this.gotoPage(this.pageNo);
-                },
-                prior: function () {
-                    this.pageNo -= 1;
-                    return this.gotoPage(this.pageNo);
-                },
-                current: function () {
-                    return this.gotoPage(this.pageNo);
-                },
-                isTail: function () {
-                    return this.pageNo >= this.cache.count();
-                },
-                isTop: function () {
-                    return this.pageNo <= 1;
-                },
-                reset: function () {
-                    this.pageNo = 0;
-                },
-                pageCount: function () {
-                    return Math.ceil(this.getCacheCount() / this.getNextCount());
-                },
-                //currentPageNumber: function () {
-                //    var postion = this.postion <= 0 ? 1 : this.postion;
-                //    var ret = Math.ceil(this.postion / this.getNextCount());
-                //    ret = ret > this.pageCount() ? this.pageCount() : ret;
-                //    return ret;
-                //},
-                getPageNo: function (/*Object*/item) {
-                    var ret = -1, start;
-                    ret = this.pageCount();
-                    if (item && ret > 0) {
-                        start = this.indexOf(item) + 1;
-                        if (start > 0) {
-                            ret = Math.ceil(start / this.getNextCount());
-                            ret = ret > this.pageCount() ? this.pageCount() : ret;
-                        }
-                    } else {
-                        ret = ret > 0 ? this.pageNo : ret;
-                    }
-                    return ret;
-                },
-                gotoPage: function (/*Number*/pageNumber) {
-                    this.pageNo = pageNumber;
-                    var start = (pageNumber >= 1 ? pageNumber - 1 : 0) * this.getNextCount();
-                    return this.cache.takeRange(start, start + this.getNextCount());
-                },
-                setNextCount: function (/*Number*/count) {
-                    this.nextCount = count;
-                    this.nextCount = this.nextCount < 1 ? 15 : this.nextCount;
-                    //this.reset();
-                },
-                getNextCount: function () {
-                    return this.nextCount;
-                },
-                indexOf: function (it) {
-                    return this.cache.indexOf(it);
-                },
-
-                //| example:
-                //| each(callback);
-                //| callback = function(/*fromq*/rdsq,/*Number*/pageNumber){return false;};
-                //| callback = "(rdsq,i)=>console.log('pageNumber:',i);rdsq.each('o=>console.log(o)')";
-                //|
-                each: function (/*Function|Lambda*/callback) {
-                    callback = clauseConverter(callback, null, null, true);
-                    var pageCount = this.pageCount();
-                    for (var i = 1; i <= pageCount; i++) {
-                        if (dppiUtils.invoking(arguments.callee, callback, [this.gotoPage(i), i]))break;
-                    }
-                    return this;
-                },
-                //example:
-                // | select(clause);
-                // | clause = function(/*fromq*/rdsq,/*Number*/pageNo){return {.....};};
-                // | clause = "(rdsq,pageNo)=>{pageNo:pageNo,count:rdsq.count()....}";
-                select: function (/*function|Lambda*/clause) {
-                    clause = clauseConverter(clause, null, function (rdsq, pageNo) {
-                        return {pageNo: pageNo, items: rdsq.toArray()};
-                    });
-                    if (!isFunction(clause))
-                        err("select=>clause must be function.");
-                    var item, ret = [];
-                    var callee = arguments.callee;
-                    this.each(
-                        function (rdsq, pageNo) {
-                            item = dppiUtils.invoking(callee, clause, [rdsq, pageNo]);
-                            if (item)
-                            //ret.push(item);
-                                ret[ret.length] = item;
-                        }
-                    );
-                    return fromq(ret);
-                },
-                getCacheCount: function () {
-                    return this.cache.count();
-                },
-                isEmpty: function () {
-                    return this.cache.isEmpty();
-                }
-            };
-
-            paginger.setNextCount(nextCount);
-            paginger.cache = dppiUtils.invoking(callee, _self.where, [clause], _self);
-
-            return paginger;
+            var _self = this;
+            var ret = extend({}, [paginger,
+                {cache: _self.where(clause)}]);
+            ret.setNextCount(nextCount);
+            return ret;
         },
         /*
          * group by clause function result
@@ -1031,158 +1077,54 @@
          *
          * */
         groupBy: function (/*function|Lambda|String fields*/clause) {
-            clause = _lambdaUtils.convert(clause);
-
-            //var cache = {}, grouped, itemsLabel = "_items"; //by tree
-            var cache = [], grouped;  // by array
-            var callee = arguments.callee;
-
-            grouped = {
-                cache: cache,
-                //example:
-                // select(function(/*_from*/g,/*_from*/i){
-                //    f=i.select("o=>o.age");
-                //    ret= { minAge:f.min(),maxAge:f.max(),count:f.count(),sum:f.sum(),items:i.toArray()};
-                //    g.each(function(item,index){
-                //       ret["group"+index]=item;
-                //    });
-                //    return ret;
-                // });
-                // select("(g,f)=>("+
-                //      "function(g,items){"+
-                //       +"var f=items.select('o=>o.age');"+
-                //      " return {group:g.join('-'),minAge:f.min(),maxAge:f.max(),count:f.count(),sum:f.sum(),items:items}})(g,f)");
-                select: function (/*Function|Lambda*/clause) {
-                    clause = _lambdaUtils.convert(clause);
-                    var ret = [];
-                    var callee = arguments.callee;
-                    this.each(
-                        function (groups, items) {
-                            var item = dppiUtils.invoking(callee, clause, [groups, items]);
-                            if (item)
-                                ret[ret.length] = item;
-                        });
-                    return fromq(ret);
-                },
-                //example:
-                // |  each(function(/*_from*/group,/*_from*/items){});
-                // |  each("(g,i)=>i.each('o=>console.log(o)')");
-                // |  each("(g,i,n)=>i.each('o=>console.log(o*n)')",n);
-                each: function (/*Function|Lambda*/clause) {
-                    clause = _lambdaUtils.convert(clause, true);
-                    var callee = arguments.callee;
-                    //dppiUtils.invoking(arguments.callee, _process, [[], this.cache, clause]); //by tree
-                    fromq(this.cache).each(function(item){
-                        return dppiUtils.invoking(callee,clause,[fromq(item),fromq(item.items)]);
-                    });
-                    return this;
-                },
-                getCache: function () {
-                    return this.cache;
+            var cache = {};
+            var g = extend({}, [grouped, {cache: cache}]);
+            if (this.items.length == 0) return g;
+            clause = clauseConverter(clause, function (rdsq) {
+                var ret = ["o=>[]"];
+                ret.push(rdsq.select("o=>'.concat(o[\"'+o+'\"])'").toString());
+                ret.push(".join(\",\")");
+                return ret.join("");
+            }, "o=>o");
+            this.each(
+                function (item, index, letvar) {
+                    var gLabel = clause(item, index, letvar);
+                    gLabel = cache[gLabel] = cache[gLabel] || [];
+                    gLabel[gLabel.length] = item;
                 }
-            };
-            //var _process = function (/*Array*/names, /*object*/data, clause) { // by tree
-            //    var ret;
-            //    names = names.concat();
-            //    for (var name in data) {
-            //        var groups = names.concat(name);
-            //        if (isArray(data[name])) {
-            //            ret = dppiUtils.invoking(grouped.each, clause, [fromq(name == itemsLabel ? names : groups), fromq(data[name])]);
-            //        } else {
-            //            //_process(groups, data[name], clause);
-            //            ret = dppiUtils.invoking(grouped.each, _process, [groups, data[name], clause]);
-            //        }
-            //        if (ret)break;
-            //    }
-            //    return ret;
-            //};
-
-            if (this.items.length == 0)return grouped;
-            //process clause is string example:
-            // var list=[{name:'bona'},{name:'peter'},{name:'kerry'}];
-            // fromq(list).groupBy("name");
-            var fields = clause;
-            clause = isString(clause) ?
-                function (item) {
-                    var ret = [];
-                    fromq(fields, ",").each(function (field) {
-                        ret.push([item[field]]);
-                    });
-                    return ret;
-                } : clause;
-
-            //this.each(    //by tree
-            //    function (item, index) {
-            //        //var gLabel = clause(item, index);
-            //        var gLabel = dppiUtils.invoking(callee, clause, [item, index]);
-            //        var root = cache, _prior;
-            //        if (isArray(gLabel)) {
-            //            fromq(gLabel).each(function (label) {
-            //                _prior = root;
-            //                root = root[label] = root[label] || {};
-            //            });
-            //            root = _prior;
-            //            gLabel = gLabel[gLabel.length - 1];
-            //        }
-            //        root = root[gLabel] = root[gLabel] || {};
-            //        root[itemsLabel] = root[itemsLabel] || [];
-            //        //root[itemsLabel].push(item);
-            //        root[itemsLabel][root[itemsLabel].length] = item;
-            //    }
-            //);
-
-            var add = function (root, arr) {  //by array
-                var found = null;
-                fromq(root).each(function (item) {
-                    if (fromq(item).equal(arr)) {
-                        found = item;
-                        return true;
-                    }
-                });
-                if (!found) found = root[root.length] = arr;
-                else {
-                    found.items = found.items.concat(arr.items);
-                }
-            };
-
-            this.each(   //by array
-                    function (item, index) {
-                        var gLabel = dppiUtils.invoking(callee, clause, [item, index]);
-                        if(!isArray(gLabel))gLabel=[].concat(gLabel);
-                        gLabel.items = [].concat(item);
-                        add(cache,gLabel);
-                    }
             );
-            return grouped;
+            return g;
         },
         max: function (/*Function|Lambda|String field*/clause) {
-            clause = clause || function (item) {
+            clause = clauseConverter(clause, function (rdsq) {
+                return "o=>o['" + rdsq.first() + "']";
+            }, function (item) {
                 if (isString(item) && isFloat(item))//process string value is float.
                     return parseFloat(item);
                 return item;
-            };
-            return dppiUtils.invoking(arguments.callee, "orderBy", [clause], this).last();
-            //return this.orderBy(clause).last();
+            });
+            return Math.max.apply(null, this.select(clause).toArray());
         }
         ,
         min: function (/*Function|Lambda|String field*/clause) {
-            clause = clause || function (item) {
+            clause = clauseConverter(clause, function (rdsq) {
+                return "o=>o['" + rdsq.first() + "']";
+            }, function (item) {
                 if (isString(item) && isFloat(item))//process string value is float.
                     return parseFloat(item);
                 return item;
-            };
-            return dppiUtils.invoking(arguments.callee, "orderBy", [clause], this).first();
-            //return this.orderBy(clause).first();
+            });
+            return Math.min.apply(null, this.select(clause).toArray());
         }
         ,
-        //example1:
-        // var list = [{name:'bona shen',age:38},{name:'kerry',age:5}];
-        // fromq(list).sum(function(item){return item.age});
-        // example2:
-        // fromq(list).sum("o=>o.age");
-        // example3:
-        // fromq(list).sum("age");
-        // | fromq().range(10).sum("(o,i,n)=>o<n?o*n:o",5);//extend args.
+//example1:
+// var list = [{name:'bona shen',age:38},{name:'kerry',age:5}];
+// fromq(list).sum(function(item){return item.age});
+// example2:
+// fromq(list).sum("o=>o.age");
+// example3:
+// fromq(list).sum("age");
+// | fromq().range(10).let(5).sum("(o,i,n)=>o<n?o*n:o");//extend args.
 
         sum: function (/*Function|Lambda|String field*/clause) {
             clause = _lambdaUtils.convert(clause);
@@ -1200,10 +1142,8 @@
                 return clause;
             })(clause);
             var ret = 0;
-            var callee = arguments.callee;
-            this.each(clause !== undefined ? function (item, index) {
-                    //ret += clause(item);
-                    ret += dppiUtils.invoking(callee, clause, [item, index]);//support sum function extend args
+            this.each(clause !== undefined ? function (item, index, letvar) {
+                    ret += clause(item, index, letvar);//support sum function extend args
                 } :
                     function (item) {
                         if (isString(item) && isFloat(item))//process string value is float.
@@ -1215,55 +1155,40 @@
             return ret;
         }
         ,
-        //like sum function.
+//like sum function.
         avg: function (/*Function|Lambda|String field*/clause) {
-            //var callee = arguments.callee;
             return this.isEmpty() ? Number.NaN :
-            dppiUtils.invoking(arguments.callee, this.sum, [clause], this) / this.count();//this.sum(clause) / this.count();
+            this.sum(clause) / this.count();
         }
         ,
         isEmpty: function () {
             var ret = isArray(this.items) && this.items.length > 0;
             return !ret;
-        },
-        //example:
-        // |   fromq("1,2,3,4").contains("o=>parseInt(o)==3");
-        // |   fromq("1,2,3,4").contains(function(item){return parserInt(item)==3;});
-        // |   fromq("1,2,3,4").contains("5");
-        // |   var n='3';fromq("1,2,3,4").contains("(o,i,n)=>o<n",n);
+        }
+        ,
+//example:
+// |   fromq("1,2,3,4").contains("o=>parseInt(o)==3");
+// |   fromq("1,2,3,4").contains(function(item){return parserInt(item)==3;});
+// |   fromq("1,2,3,4").contains("5");
+// |   var n='3';fromq("1,2,3,4").let(n).contains("(o,i,n)=>o<n");
         contains: function (/*Function|Lambda|value*/clause) {
-            //return this.indexOf(clause) !== -1;
-            var callee = arguments.callee;
-            return dppiUtils.invoking(callee, this.indexOf, [clause], this) !== -1;
-        },
-        //example:
-        // |  fromq("1,2,3,4,5").indexOf("o=>o==='5'");
-        // |  fromq("1,2,3,4,5").indexOf(function(item){return item==='5';});
-        // |  fromq("1,2,3,4,5").indexOf("3");
+            return this.indexOf(clause) !== -1;
+        }
+        ,
+//example:
+// |  fromq("1,2,3,4,5").indexOf("o=>o==='5'");
+// |  fromq("1,2,3,4,5").indexOf(function(item){return item==='5';});
+// |  fromq("1,2,3,4,5").indexOf("3");
         indexOf: function (/*Function|Lambda|value*/clause) {
-            clause = _lambdaUtils.convert(clause);
-
-            if (!isFunction(clause)) {
-                var value = clause;
-                clause = function (item) {
-                    return item === value;
-                }
-            }
-            var ret = -1;
-            var callee = arguments.callee;
-            this.each(function (item, index) {
-                //if (clause(item, index)) {
-                if (dppiUtils.invoking(callee, clause, [item, index])) {
-                    ret = index;
-                    return true;
-                }
-            });
-            return ret;
+            return lastOrIndexOf(false).apply(this, arguments);
+        },
+        lastIndexOf: function (/*Function|Lambda|value*/clause) {
+            return lastOrIndexOf(true).apply(this, arguments);
         },
         toString: function (separator) {
             return this.toArray().join(separator || '');
         },
-        //删除字符串首尾空格并重新组织fromq
+//删除字符串首尾空格并重新组织fromq
         trim: function () {
             var ret = [];
             this.each(function (item) {
@@ -1273,9 +1198,9 @@
                         ret.length = ret.length - 1;
                 } else ret[ret.length] = item;
             });
-            return fromq(ret);
+            return fromq(this, ret);
         },
-        //将数组中字符串所有单词的首字母转为大写字母
+//将数组中字符串所有单词的首字母转为大写字母
         initialsToUpperCase: function () {
             var ret = [];
             this.each(function (item) {
@@ -1283,9 +1208,9 @@
                     ret[ret.length] = initialsToUpperCase(item);
                 } else ret[ret.length] = item;
             });
-            return fromq(ret);
+            return fromq(this, ret);
         },
-        //将数组中字符串第一个单词的首字母转为大写字母
+//将数组中字符串第一个单词的首字母转为大写字母
         initialToUpperCase: function () {
             var ret = [];
             this.each(function (item) {
@@ -1293,13 +1218,14 @@
                     ret[ret.length] = initialToUpperCase(item);
                 } else ret[ret.length] = item;
             });
-            return fromq(ret);
+            return fromq(this, ret);
         },
-        //随机从数组中选择count数量的元素
-        // |example:fromq([1,3,6,9]).random(5).toString(",");
-        // |out:
-        // |   1,3,9,9,6
+//随机从数组中选择count数量的元素
+// |example:fromq([1,3,6,9]).random(5).toString(",");
+// |out:
+// |   1,3,9,9,6
         random: function (/*Number*/count) {
+            count = count || 1;
             var ret = [], maxValue = this.items.length - 1, item, index;
             for (var i = 0; i < count; i++) {
                 index = Math.round(Math.random() * maxValue);
@@ -1310,15 +1236,17 @@
                 //    console.log("index:",index," array length:",this.count()," item:",item);
                 //}
             }
-            return fromq(ret);
+            return fromq(this, ret);
         },
-        //example:
-        // |  fromq("1,2,3,4").join(fromq("2,3"),"(a,b)=>a-b==0","(a,b)=>{a:a,b:b}");
+//example:
+// |  fromq("1,2,3,4").join(fromq("2,3"),"(a,b)=>a-b==0","(a,b)=>{a:a,b:b}");
         leftJoin: function (/*Array|fromq*/second, /*Function|lambda|String fields*/comparer, /*Function|Lambda*/selector) {
-            return dppiUtils.invoking(arguments.callee, this.join, ['left', second, comparer, selector], this);
+            //return dppiUtils.invoking(arguments.callee, this.join, ['left', second, comparer, selector], this);
+            return this.join('left', second, comparer, selector);
         },
         innerJoin: function (/*Array|fromq*/second, /*Function|lambda|String fields*/comparer, /*Function|Lambda*/selector) {
-            return dppiUtils.invoking(arguments.callee, this.join, ['inner', second, comparer, selector], this);
+            //return dppiUtils.invoking(arguments.callee, this.join, ['inner', second, comparer, selector], this);
+            return this.join('inner', second, comparer, selector);
         },
         join: function (/*String*/joinType, /*Array|fromq*/second, /*Function|lambda|String fields*/comparer, /*Function|Lambda*/selector) {
             var type = {
@@ -1348,36 +1276,28 @@
             });
 
             comparer = clauseConverter(comparer, function (fieldsq) {
-                //var ret = ["(a,b)=>(function(a,b){console.log(arguments);return "];
                 var ret = ["(a,b)=>"];
                 fieldsq.each(function (name) {
                     ret.push("a['" + name + "']==b['" + name + "']");
                     ret.push("&&");
                 });
                 ret.length = ret.length - 1;
-                //ret.push("})(a,b)");
                 return ret.join("");
             }, function (a, b) {
                 return a.toString() === b.toString();
             });
 
-            var callee = arguments.callee;
             return leftq.select(
-                function (leftItem) {
+                function (leftItem, index, letvar) {
                     var value = rightq.first(function (rightItem) {
-                        //console.log(leftItem,rightItem);
-                        return dppiUtils.invoking(callee, comparer, [leftItem, rightItem]);
-                        //return comparer(leftItem, rightItem);
+                        return comparer(leftItem, rightItem, letvar);
                     });
                     if (value || type.isLeft())
-                    //if (value) {
-                    //return selector(leftItem, value||{});
-                        return dppiUtils.invoking(callee, selector, [leftItem, value || {}]);
-                    //}
+                        return selector(leftItem, value || {}, letvar);
                 });
         },
-        //example:
-        //|  fromq(/ab*/g).match("abb switch,i like abb").each("o=>console.log(o)");
+//example:
+//|  fromq(/ab*/g).match("abb switch,i like abb").each("o=>console.log(o)");
         match: function (/*String*/str) {
             var ret = [];
             if (this.regexp instanceof RegExp) {
@@ -1386,64 +1306,78 @@
                 while ((value = this.regexp.exec(str)) !== null)
                     ret.push(value);
             }
-            return fromq(ret);
+            return fromq(this, ret);
         },
-        //eg1:
-        // |fromq([1,2,3]).notIn([3,4]).each("o=>console.log(o)");//out:1,2
-        //eg2:
-        // | var distinct = function(item,index){return item;};
-        // | var log = function(item){console.log(item)};
-        // | fromq([1,2,3]).notIn([2,4]).each(log); //out:1,3
-        // | fromq([1,2,3]).notIn([2,4],{left:distinct,right:distinct}).each(log); //out:1,3
-        // | fromq([1,2,3]).notIn([2,4],"o=>o").each(log); //out:1,3
-        // | fromq([1,2,3]).notIn([2,4],{left:"o=>o",right:"o=>o"}).each(log); //out:1,3
+//eg1:
+// |fromq([1,2,3]).notIn([3,4]).each("o=>console.log(o)");//out:1,2
+//eg2:
+// | var distinct = function(item,index){return item;};
+// | var log = function(item){console.log(item)};
+// | fromq([1,2,3]).notIn([2,4]).each(log); //out:1,3
+// | fromq([1,2,3]).notIn([2,4],{left:distinct,right:distinct}).each(log); //out:1,3
+// | fromq([1,2,3]).notIn([2,4],"o=>o").each(log); //out:1,3
+// | fromq([1,2,3]).notIn([2,4],{left:"o=>o",right:"o=>o"}).each(log); //out:1,3
         notIn: function (/*fromq|array*/it, /*lambda|function|string fields|{left:'',right:''}*/distinctClause) {
             return inOrNotIn(true).apply(this, arguments);
-        },
-        //eg:
-        // @see notIn
+        }
+        ,
+//eg:
+// @see notIn
         in: function (/*fromq|array*/it, /*lambda|function|string fields|{left:'',right:''}*/distinctClause) {
             return inOrNotIn(false).apply(this, arguments);
-        },
+        }
+        ,
+//eg:
+// |fromq([1,2,3]).equal(fromq.utils.range(1,4))
         equal: function (/*fromq|array*/it, /*lambda|function*/compareClause) {
-            var ret = false, callee = arguments.callee;
+            var ret = false;//, callee = arguments.callee;
             it = fromq(it);
-            compareClause = clauseConverter(compareClause, null, function (a, b) {
-                return a === b;
-            });
+            if (this.items === it.items)return true;
             ret = this.items.length === it.items.length;
             if (ret) {
-                this.each(function (item, index) {
-                    ret = dppiUtils.invoking(callee, compareClause, [item, it.elementAt(index)]);
+                compareClause = clauseConverter(compareClause, null, function (a, b) {
+                    return a === b;
+                });
+
+                this.each(function (item, index, letvar) {
+                    //ret = dppiUtils.invoking(callee, compareClause, [item, it.elementAt(index)]);
+                    ret = compareClause(item, it.elementAt(index), letvar);
                     if (!ret) return true;
                 });
             }
             return ret;
         }
-    };
+        ,
+//设定后继方法的扩展参数
+        let: function (value) {
+            this.letvar = value || {};
+            return this;
+        }
+    }
+    ;
 
 //alias:
-    fromq.fn.filter = fromq.fn.where;
-    fromq.fn.some = fromq.fn.any;
-    fromq.fn.every = fromq.fn.all;
-    fromq.fn.forEach = fromq.fn.each;
-    fromq.fn.head = fromq.fn.first;
-    fromq.fn.tail = fromq.fn.last;
-    fromq.fn.aggregate = fromq.fn.sum;
-    fromq.fn.average = fromq.fn.avg;
-    fromq.fn.map = fromq.fn.select;
-    fromq.fn.orderByDesc = fromq.fn.orderByDescending;
-    fromq.fn.headOrDefault = fromq.fn.firstOrDefault;
-    fromq.fn.tailOrDefault = fromq.fn.lastOrDefault;
-    fromq.fn.sort = fromq.fn.orderBy;
-    fromq.fn.sortBy = fromq.fn.orderBy;
+    extend(fromq.fn, {
+        filter: fromq.fn.where,
+        some: fromq.fn.any,
+        every: fromq.fn.all,
+        forEach: fromq.fn.each,
+        head: fromq.fn.first,
+        tail: fromq.fn.last,
+        aggregate: fromq.fn.sum,
+        average: fromq.fn.avg,
+        map: fromq.fn.select,
+        orderByDesc: fromq.fn.orderByDescending,
+        headOrDefault: fromq.fn.firstOrDefault,
+        tailOrDefault: fromq.fn.lastOrDefault,
+        sort: fromq.fn.orderBy,
+        sortBy: fromq.fn.orderBy
+    });
 
-    fromq.fn.init.prototype = fromq.fn;
-    //fromq.fn.init.constructor = fromq;
-
+    fromq.fn._init.prototype = fromq.fn;
 
 //static function collection for fromq.utils:
-    var utils = fromq.utils = {
+    var utils = fromq.utils = extend({}, {
         isNumber: isNumber,
         isFloat: isFloat,
         isFunction: isFunction,
@@ -1458,7 +1392,7 @@
         // | repeat("a",4).toString() //aaaa
         repeat: repeat,
         //example:
-        // |random(10,20).toString(",");//1,3,19,18,8,18,1,12,11,7
+        // |random(20,10).toString(",");//1,3,19,18,8,18,1,12,11,7
         random: random,
         trim: trim,
         lambda: lambda,
@@ -1472,15 +1406,33 @@
         //caller("test", 10, 45);
         // |out:
         // |    [1,2,45]
-        invoking: dppiUtils.invoking.bind(dppiUtils)
-    };
+        invoking: dppiUtils.invoking.bind(dppiUtils),
+        //example:
+        //| extend({},{cache:[1,2,3]});
+        //| extend({},[{name:'bona shen'},{age:38}]);
+        extend: extend
+    });
 
-    fromq.lambda = lambda;
+    extend(fromq, {
+        lambda: lambda,
+        extend: function (/*Object|Array*/source) {
+            return extend(fromq.fn, source);
+        }
+    });
+
+//export for pref test.
+    extend(fromq.utils, {
+        clauseConverter: clauseConverter,
+        lambdaConverter: _lambdaUtils.convert.bind(_lambdaUtils)
+
+    });
 
 //static function for lambda
-    lambda.getCache = _lambdaUtils.getCache;
-    lambda.isLambda = _lambdaUtils.isLambda;
-    lambda.resetCache = _lambdaUtils.resetCache;
+    extend(lambda, {
+        getCache: _lambdaUtils.getCache,
+        isLambda: _lambdaUtils.isLambda,
+        resetCache: _lambdaUtils.resetCache
+    });
 
 //exports
     (function () {
