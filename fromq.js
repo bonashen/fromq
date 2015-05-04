@@ -1,5 +1,6 @@
-﻿define(null, [], function () {
-    //"use strict";
+﻿(function () {
+
+    var root = this; // Establish the root object, `window` in the browser, or `exports` on the server.
 
     var reNumber = /^[0-9]+$/,
         reFloat = /^(\+|-)?\d+($|\.\d+$)/,
@@ -8,6 +9,15 @@
     var reFunctionArgumentList = /^\s*function(?:\s+[^(\s]+)?\s*\(\s*([^)]*)\s*\)/;
     var reOneArg = /^\s*(\w+)\s*=>(.+)$/;
     var reManyArgs = /^\s*\(\s*([\w\s,]*)\s*\)\s*=>(.+)$/;
+    var reGetClass = /^\[object\s+(\w+)\s*]$/;
+
+    var toString = Object.prototype.toString;
+
+    var getClass = function (it) {
+        var cls = toString.call(it);
+        reGetClass.lastIndex = 0;
+        return reGetClass.exec(cls)[1];
+    };
 
     //isString,isFunction,isArray implement code is come from dojo library.
     var isString = function (it) {
@@ -15,6 +25,7 @@
             //		Return true if it is a String
             // it: anything
             //		Item to test.
+            //return getClass(it) === "String";
             return (typeof it == "string" || it instanceof String); // Boolean
         },
         isNumber = function (str) {
@@ -26,11 +37,24 @@
             return reFloat.exec(str) ? true : false;
         },
         isArray = function (it) {
+            //return getClass(it) === "Array";
             return it && (it instanceof Array || (typeof it) == "array");
         },
         isFunction = function (it) {
+            //return getClass(it) === "Function";
             return (it) && (it instanceof Function);
         },
+        isObject = function (it) {
+            return getClass(it) === "Object";
+        },
+
+        isRegexp = function (it) {
+            //return getClass(it) === 'Regexp';
+            return it && (it instanceof RegExp);
+        }
+
+        ,
+
         trim = function (str) {
             reTrim.lastIndex = 0;
             return str.replace(reTrim, '');
@@ -39,23 +63,24 @@
             throw new Error("fromq/method error," + msg);
         },
 
+        dppiCache = [],
+
         dppiUtils = {     //dppiUtils.invoking(callee,clause,[]);
             getFunctionArgumentList: function (fn) {
+                this.cache = this.cache || fromq(dppiCache);//[{method:fn,args:method.arguments,argsCount:method.arguments.length}]
+                var ret = this.cache.let(fn).where("(o,i,v)=>o.method===v").first();
+                if (ret)return ret.args;
                 if (isFunction(fn)) {
                     reFunctionArgumentList.lastIndex = 0;
-                    var ret = reFunctionArgumentList.exec(fn);
-                    return ret[1].split(",");
+                    ret = reFunctionArgumentList.exec(fn)[1].split(",");
+                    dppiCache[dppiCache.length] = {method: fn, args: ret, argsCount: ret.length};
+                    //return ret[1].split(",");
+                    return ret;
                 } else return null;
             },
             getCallerExtValues: function (caller) {
-                //var extCount = this.getCallerExtCount(caller);
                 var defNames = this.getFunctionArgumentList(caller);
-                //var extValues = [];
-                //if (extCount) {
-                //    extValues = Array.prototype.slice.call(caller.arguments, defNames.length);
                 return Array.prototype.slice.call(caller.arguments, defNames.length);
-                //}
-                //return extValues;
             },
             getCallerExtCount: function (caller) {
                 return caller.arguments.length - this.getFunctionArgumentList(caller).length;
@@ -179,7 +204,7 @@
                 return num;
             });
             for (var i = start; i < end; i += step) {
-                ret[ret.length] = dppiUtils.invoking(arguments.callee, valueClause, [i]);
+                ret[ret.length] = valueClause(i);
             }
             return fromq(ret);
         },
@@ -190,12 +215,15 @@
             }
             return fromq(ret);
         },
-        random = function (maxValue, count) {
+        random = function (min, max, count) {
             var i = 0, ret = [];
-            maxValue -= 1;
+            if (max == null) {
+                max = min;
+                min = 0;
+            }
             count = count || 1;
             for (; i < count; i++) {
-                ret[i] = Math.round(Math.random() * maxValue);
+                ret[i] = min + Math.floor(Math.random() * (max - min + 1));
             }
             return fromq(ret);
         },
@@ -287,6 +315,20 @@
                 }, isLastIndexOf);
                 return ret;
             }
+        },
+        maxOrMin = function (behavior) {
+
+            return function (/*Function|Lambda|String field*/clause) {
+                clause = clauseConverter(clause, function (rdsq) {
+                    return "o=>o['" + rdsq.first() + "']";
+                }, function (item) {
+                    if (isString(item) && isFloat(item))//process string value is float.
+                        return parseFloat(item);
+                    return item;
+                });
+                return behavior.apply(null, this.select(clause).toArray());
+            }
+
         }
         ,
         extend = function (dest, source) {
@@ -336,6 +378,9 @@
         },
         getCache: function () {
             return this.cache;
+        },
+        count: function () {
+            return this.select("(g,i)=>{key:g,value:i.size()}}");
         }
     };
 
@@ -439,14 +484,14 @@
             this.each(
                 function (rdsq, pageNo) {
                     item = clause(rdsq, pageNo);
-                    if (item!==undefined)
+                    if (item !== undefined)
                         ret[ret.length] = item;
                 }
             );
             return fromq(ret);
         },
         getCacheCount: function () {
-            return this.cache.count();
+            return this.cache.size();
         },
         isEmpty: function () {
             return this.cache.isEmpty();
@@ -514,8 +559,9 @@
         if (it instanceof fromq) {
             var arr = arguments[1];
             var ret = it;
-            if (arr !== null) {
-                ret = new fromq.fn._init(arr);
+            if (typeof(arr) !== 'undefined') {
+                //ret = new fromq.fn._init(arr);
+                ret = fromq(arr);
                 ret.let(it.letvar);//set let variable
             }
             return ret;
@@ -524,7 +570,8 @@
         //for RegExp
         //example
         // |  fromq(/ab*/g,"abdfabhg").each("o=>console.log(o)");
-        if (it instanceof RegExp) {
+        //if (it instanceof RegExp) {
+        if (isRegexp(it)) {
             var str = arguments[1];
             var ret = new fromq.fn._init(it);
             if (isString(str)) {
@@ -710,7 +757,7 @@
         selectMany: function (/*Function|Lambda|String feilds*/clause) {
             clause = clauseConverter(clause, function (fieldsq) {
                 var ret = "o=>o['" + fieldsq.first() + "']";
-                if (fieldsq.count() == 1)return ret;
+                if (fieldsq.size() == 1)return ret;
                 ret = [].concat("o=>{");
                 fieldsq.each(function (name) {
                     ret.push("'" + name + "':o['" + name + "']");
@@ -732,13 +779,14 @@
         // count(function(item){return true;});
         // count('o=>o');
         // count();
-        count: function (/*Function|Lambda*/clause) {
-            clause = _lambdaUtils.convert(clause);
-
-            if (clause == null)
-                return this.items.length;
-            else
-                return this.where(clause).items.length;
+        count: function (/*Function|Lambda|String fields*/clause) {
+            return fromq(this, this
+                .groupBy(clause)
+                .select("(g,i)=>{key:g,value:i.size()}")
+                .toArray());
+        },
+        size: function () {
+            return this.items.length;
         },
         //example:
         // distinct(function(item){return item});
@@ -811,7 +859,7 @@
         },
         reverse: function () {
             var retVal = [];
-            for (var index = this.items.length - 1; index > -1; index--)
+            for (var index = this.size() - 1; index > -1; index--)
                 retVal[retVal.length] = this.items[index];
             return fromq(this, retVal);
         },
@@ -827,7 +875,7 @@
             }
             else {
                 // If no clause was specified, then return the First element in the Array
-                if (this.items.length > 0)
+                if (this.size() > 0)
                     return this.elementAt(0);
                 else
                     return null;
@@ -845,8 +893,8 @@
             }
             else {
                 // If no clause was specified, then return the First element in the Array
-                if (this.items.length > 0)
-                    return this.elementAt(this.items.length - 1);
+                if (this.size() > 0)
+                    return this.elementAt(this.size() - 1);
                 else
                     return null;
             }
@@ -973,13 +1021,13 @@
             return fromq(this, result);
         },
         defaultIfEmpty: function (defaultValue) {
-            if (this.items.length == 0) {
+            if (this.size() == 0) {
                 return defaultValue;
             }
             return this;
         },
         elementAtOrDefault: function (index, defaultValue) {
-            if (index >= 0 && index < this.items.length) {
+            if (index >= 0 && index < this.size()) {
                 return this.items[index];
             }
             return defaultValue;
@@ -1000,14 +1048,15 @@
         each: function (/*function|Lambda*/callback, /*boolean*/backwards) {
             callback = _lambdaUtils.convert(callback, true);
             var
-                items = this.items;
+                items = this.items, letvar = this.letvar, i, l;
             if (backwards) {
-                for (var i = items.length; i >= 0; --i)if (callback(items[i], i, this.letvar))break;
+                for (i = items.length; i >= 0; --i)if (callback(items[i], i, letvar))break;
             }
-            else for (var i = 0, l = items.length; i < l; ++i) {
-                if (callback(items[i], i, this.letvar))break;
+            else for (i = 0, l = items.length; i < l; ++i) {
+                if (callback(items[i], i, letvar))break;
             }
             return this;
+
         },
 
         //example1:
@@ -1039,7 +1088,7 @@
             return this.takeRange(0, top, clause);
         },
         skip: function (/*number*/count, /*function|Lambda*/clause) {
-            return this.takeRange(count, this.count(), clause);
+            return this.takeRange(count, this.size(), clause);
         },
 
         paging: function (/*Number*/nextCount, /*Function|Lambda*/clause) {
@@ -1079,7 +1128,7 @@
         groupBy: function (/*function|Lambda|String fields*/clause) {
             var cache = {};
             var g = extend({}, [grouped, {cache: cache}]);
-            if (this.items.length == 0) return g;
+            if (this.isEmpty()) return g;
             clause = clauseConverter(clause, function (rdsq) {
                 var ret = ["o=>[]"];
                 ret.push(rdsq.select("o=>'.concat(o[\"'+o+'\"])'").toString());
@@ -1096,25 +1145,11 @@
             return g;
         },
         max: function (/*Function|Lambda|String field*/clause) {
-            clause = clauseConverter(clause, function (rdsq) {
-                return "o=>o['" + rdsq.first() + "']";
-            }, function (item) {
-                if (isString(item) && isFloat(item))//process string value is float.
-                    return parseFloat(item);
-                return item;
-            });
-            return Math.max.apply(null, this.select(clause).toArray());
+            return maxOrMin(Math.max).call(this, clause);
         }
         ,
         min: function (/*Function|Lambda|String field*/clause) {
-            clause = clauseConverter(clause, function (rdsq) {
-                return "o=>o['" + rdsq.first() + "']";
-            }, function (item) {
-                if (isString(item) && isFloat(item))//process string value is float.
-                    return parseFloat(item);
-                return item;
-            });
-            return Math.min.apply(null, this.select(clause).toArray());
+            return maxOrMin(Math.min).call(this, clause);
         }
         ,
 //example1:
@@ -1158,11 +1193,11 @@
 //like sum function.
         avg: function (/*Function|Lambda|String field*/clause) {
             return this.isEmpty() ? Number.NaN :
-            this.sum(clause) / this.count();
+            this.sum(clause) / this.size();
         }
         ,
         isEmpty: function () {
-            var ret = isArray(this.items) && this.items.length > 0;
+            var ret = isArray(this.items) && this.size() > 0;
             return !ret;
         }
         ,
@@ -1226,9 +1261,9 @@
 // |   1,3,9,9,6
         random: function (/*Number*/count) {
             count = count || 1;
-            var ret = [], maxValue = this.items.length - 1, item, index;
+            var ret = [], maxValue = this.size() - 1, item, index;
             for (var i = 0; i < count; i++) {
-                index = Math.round(Math.random() * maxValue);
+                index = Math.floor(Math.random() * maxValue);
                 item = this.elementAt(index);
                 //if (item)
                 ret[i] = item;
@@ -1333,7 +1368,7 @@
             var ret = false;//, callee = arguments.callee;
             it = fromq(it);
             if (this.items === it.items)return true;
-            ret = this.items.length === it.items.length;
+            ret = this.size() === it.size();
             if (ret) {
                 compareClause = clauseConverter(compareClause, null, function (a, b) {
                     return a === b;
@@ -1348,7 +1383,9 @@
             return ret;
         }
         ,
-//设定后继方法的扩展参数
+        //设定后继方法的扩展参数
+        // |eg:
+        // | fromq("1,2,3").let(2).where("(o,i,v)=>o>v");
         let: function (value) {
             this.letvar = value || {};
             return this;
@@ -1371,7 +1408,11 @@
         headOrDefault: fromq.fn.firstOrDefault,
         tailOrDefault: fromq.fn.lastOrDefault,
         sort: fromq.fn.orderBy,
-        sortBy: fromq.fn.orderBy
+        sortBy: fromq.fn.orderBy,
+        countBy: fromq.fn.count,
+        within: fromq.fn.in,
+        without: fromq.fn.notIn,
+        isEqual: fromq.fn.equal
     });
 
     fromq.fn._init.prototype = fromq.fn;
@@ -1383,6 +1424,9 @@
         isFunction: isFunction,
         isArray: isArray,
         isString: isString,
+        isObject: isObject,
+        isRegexp: isRegexp,
+        getClass: getClass,
         //example:
         // |  range(10).echo("o=>console.log(o)");
         // |  range(0,10).echo("o=>console.log(o)");
@@ -1421,11 +1465,11 @@
     });
 
 //export for pref test.
-    extend(fromq.utils, {
-        clauseConverter: clauseConverter,
-        lambdaConverter: _lambdaUtils.convert.bind(_lambdaUtils)
-
-    });
+//    extend(fromq.utils, {
+//        clauseConverter: clauseConverter,
+//        lambdaConverter: _lambdaUtils.convert.bind(_lambdaUtils)
+//
+//    });
 
 //static function for lambda
     extend(lambda, {
@@ -1435,28 +1479,20 @@
     });
 
 //exports
-    (function () {
-        var platform,
-            platformList = {
-                'nodejs': function () {
-                    return typeof module !== 'undefined' && module.exports;
-                },
-                'web': function () {
-                    return true;
-                }
-            };
-        for (var key in platformList) {
-            if (platformList[key]()) {
-                platform = key;
-                break;
-            }
+    if (typeof exports !== 'undefined') {
+        if (typeof module !== 'undefined' && module.exports) {
+            exports = module.exports = fromq;
         }
-        if (platform == 'nodejs') {
-            module.exports = fromq;
-        } else {
-            window.fromq = fromq;
-        }
-    })();
-    return fromq;
-})
-;
+        exports.fromq = fromq;
+    } else {
+        root.fromq = fromq;
+    }
+
+//for AMD
+    if (isFunction(define) && define.amd) {
+        define(null, [], function () {
+            return fromq;
+        });
+    }
+
+}).call(this);
