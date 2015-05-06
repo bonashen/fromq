@@ -994,21 +994,19 @@
             }, "o=>o");
 
             clause = dppiUtils.invokeProxy(arguments.callee, clause);
-            var leftq = this.distinct(clause);//删除重复项
             var result, map = {};
-            var rightq = fromq(this, second).distinct(clause);//删除重复项
+            var leftq= this,rightq = fromq(this,second);
             if (leftq.size() > rightq.size()) {//挑选较多的fromq为标靶，提高效率
                 var tmp = leftq;
                 leftq = rightq;
                 rightq = tmp;
             }
             rightq.each(function (item, index) {//布置标靶
-                map[clause.call(this, item, index)] = true;
+                map[clause.call(this, item, index)] = item;
             });
-            result = leftq.select(function (item, index) {
-                if (map[clause.call(this, item, index)] == true) {//打靶
-                    return item;
-                }
+            result = leftq.distinct(clause,true)//删除重复项,并返回项唯一值
+                .select(function (item) {
+                    return map[item];            //由select方法打靶
             }).toArray();
             map = null;
             return fromq(this, result);
@@ -1074,16 +1072,14 @@
                 .select(function (item, index) {//选择未在m靶中出现的值，若出现将标识为undefined.
                     dis = clause.call(this, item, index);
                     if (m[dis] !== undefined) {//打靶
-                        m[dis] = undefined;    //删除出现项
+                        delete m[dis];       //删除出现项
                         return;         //过滤该项
                     }
                     return item;
                 }
             ).toArray();
-            var item;
             for (var key in m) {//插入未标识undefined的对象
-                if ((item = m[key]) !== undefined)
-                    ret[ret.length] = item;
+                ret[ret.length] = m[key];
             }
             m = null;
             return fromq(this, ret);
