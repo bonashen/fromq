@@ -204,6 +204,7 @@
             }
         },
         isLambda = _lambdaUtils.isLambda,
+
     //eg:
     // | range(10);
     // | range(1,10);
@@ -382,6 +383,13 @@
                 _doExtend(dest, source[i]);
             }
             return dest;
+        },
+        mapKvo = function(keys,values){
+            var ret = {};
+            for(var i= 0,l = keys.length;i<l;++i){
+                ret[keys[i]] = values[i];
+            }
+            return ret;
         };
 
 
@@ -393,17 +401,19 @@
         //    ret= {group:g minAge:f.min(),maxAge:f.max(),count:f.count(),sum:f.sum(),items:i.toArray()};
         //    return ret;
         // });
+        //letvar:letvar,
         select: function (/*Function|Lambda*/clause) {
             clause = _lambdaUtils.convert(clause);
             clause = dppiUtils.invokeProxy(arguments.callee, clause);//support dppiUtils.invoking
             var ret = [], item;
             this.each(
                 function (group, items) {
-                    item = clause.call(null, group, items);
-                    if (item !== undefined)
-                        ret[ret.length] = item;
+                    item = clause.call(this, group, items);
+                    if (item === undefined || item == null) return;
+                    ret[ret.length] = item;
+                    //ret = ret.concat(item);
                 });
-            return fromq(ret);
+            return fromq(ret).let(this.letvar);
         },
         //example:
         // |  each(function(/*object*/group,/*fromq*/items){});
@@ -412,7 +422,7 @@
             clause = _lambdaUtils.convert(clause, true);
             clause = dppiUtils.invokeProxy(arguments.callee, clause);//support dppiUtils.invoking
             for (var key in this.cache) {
-                if (clause.call(null, key, fromq(this.cache[key])))break;
+                if (clause.call(this.letvar, key, fromq(this.cache[key]).let(this.letvar)))break;
             }
             return this;
         },
@@ -420,9 +430,32 @@
             return this.cache;
         },
         count: function () {
-            return this.select("(g,i)=>{key:g,value:i.size()}}");
+            return this.select("(g,i)=>{key:g,value:i.size(),items:i}");
+        },
+        having: function (/*Function|Lambda*/clause) {//筛选出满足条件的组，重新组织至fromq
+            clause = _lambdaUtils.convert(clause);
+            clause = dppiUtils.invokeProxy(arguments.callee, clause);//support dppiUtils.invoking
+            return this.count().select(function (item) {
+                if (clause.call(this, item.key, item.items)) {
+                    return {group: item.key, items: item.items};
+                }
+            });
+        },
+        filter: function (/*Function|Lambda*/clause) {//筛选出满足条件组的所有元素，解组到fromq,no group label
+            clause = _lambdaUtils.convert(clause);
+            clause = dppiUtils.invokeProxy(arguments.callee, clause);//support dppiUtils.invoking
+            var ret = [];
+            this.each(
+                function (g, i) {
+                    if (clause.call(this, g, i)) {
+                        ret = ret.concat(i.toArray());
+                    }
+                }
+            );
+            return fromq(ret).let(this.letvar);
         }
     };
+
 
     var paginger = {
         //cache: null,
@@ -538,10 +571,10 @@
         }
     };
 
-    //example
-    // |   clauseConverter(clause,function(fieldsq){return ""},function(){return;});
-    // |   clauseConverter(clause,null,function(){return;});
-    // |   fieldsProcesser=function(/*fromq*/ fieldsq){return "o=>o"}//return lambda;
+//example
+// |   clauseConverter(clause,function(fieldsq){return ""},function(){return;});
+// |   clauseConverter(clause,null,function(){return;});
+// |   fieldsProcesser=function(/*fromq*/ fieldsq){return "o=>o"}//return lambda;
     var clauseConverter = function (clause, fieldsProcesser, defaultFunction, isClosure) {
         if (isFunction(clause))return clause;
         if (isLambda(clause))return lambda(clause, isClosure);
@@ -558,7 +591,7 @@
     };
 
 
-    //将字符串中单词的首字母转换为大写字母
+//将字符串中单词的首字母转换为大写字母
     var initialsToUpperCase = function (it) {
             var re = /([^A-z]*)([A-z]+)([^A-z]*)/g;
             var src = it;
@@ -578,7 +611,7 @@
                     return s.toUpperCase();
                 }).toString("");
         },
-    //将字符中首个单词的首字母转换为大写字母
+//将字符中首个单词的首字母转换为大写字母
         initialToUpperCase = function (it) {
             return it.replace(/(\w)/,
                 function (s) {
@@ -995,7 +1028,7 @@
 
             clause = dppiUtils.invokeProxy(arguments.callee, clause);
             var result, map = {};
-            var leftq= this,rightq = fromq(this,second);
+            var leftq = this, rightq = fromq(this, second);
             if (leftq.size() > rightq.size()) {//挑选较多的fromq为标靶，提高效率
                 var tmp = leftq;
                 leftq = rightq;
@@ -1004,10 +1037,10 @@
             rightq.each(function (item, index) {//布置标靶
                 map[clause.call(this, item, index)] = item;
             });
-            result = leftq.distinct(clause,true)//删除重复项,并返回项唯一值
+            result = leftq.distinct(clause, true)//删除重复项,并返回项唯一值
                 .select(function (item) {
                     return map[item];            //由select方法打靶
-            }).toArray();
+                }).toArray();
             map = null;
             return fromq(this, result);
         },
@@ -1218,7 +1251,7 @@
          * */
         groupBy: function (/*function|Lambda|String fields*/clause) {
             var cache = {};
-            var g = extend({}, [grouped, {cache: cache}]);
+            var g = extend({}, [grouped, {cache: cache, letvar: this.letvar}]);
             if (this.isEmpty()) return g;
             clause = clauseConverter(clause, function (rdsq) {
                 var ret = ["o=>[]"];
@@ -1367,7 +1400,7 @@
 // |   1,3,9,9,6
         random: function (/*Number*/count) {
             count = count || 1;
-            var ret = [], maxValue = this.size() - 1, item, index;
+            var ret = [], maxValue = this.size() , item, index;
             for (var i = 0; i < count; i++) {
                 index = Math.floor(Math.random() * maxValue);
                 item = this.elementAt(index);
@@ -1586,7 +1619,10 @@
         //example:
         //| extend({},{cache:[1,2,3]});
         //| extend({},[{name:'bona shen'},{age:38}]);
-        extend: extend
+        extend: extend,
+        //example:
+        // | mapKvo(['name','age'],['kerry',5]);
+        mapKvo : mapKvo
     });
 
     extend(fromq, {
