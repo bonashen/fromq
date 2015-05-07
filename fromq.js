@@ -307,22 +307,22 @@
             // | fromq([1,2,3]).notIn([2,4],"o=>o").each(log);
             return function (/*fromq|array*/it, /*lambda|function|string fields|{left:'',right:''}*/distinctClause) {
                 var _this = this, dict = {};
-                var ret = [];
+                var ret;
                 distinctClause = keyValueClauseConverter(distinctClause);
                 //distinctClause.right = dppiUtils.invokeProxy(arguments.callee,distinctClause.right);
                 distinctClause.left = dppiUtils.invokeProxy(arguments.callee, distinctClause.left);
 
                 fromq(it).let(dict).distinct(distinctClause.right, true)
                     .each("(o,i)=>this[o]=true");
-                _this.each(
+                ret = _this.select(
                     function (item, index) {
                         if (notIn ^ dict[distinctClause.left.apply(this, [item, index])]) {
-                            ret[ret.length] = item;
+                            return item;
                         }
                     }
                 );
                 dict = null;
-                return fromq(this, ret);
+                return ret;
             }
         },
         lastOrIndexOf = function (isLastIndexOf) {
@@ -368,8 +368,43 @@
                 return behavior.apply(null, this.select(clause).toArray());
             }
 
-        }
-        ,
+        },
+        leftOrInnerJoin = function (/*String*/isLeft) {
+
+            return function (/*Array|fromq*/second, /*Function|lambda|String fields*/comparer, /*Function|Lambda*/selector) {
+                var leftq = fromq(this), rightq = fromq(second);
+
+                selector = clauseConverter(selector, null, function (a, b) {
+                    return {"left": a, "right": b};
+                });
+
+                comparer = clauseConverter(comparer, function (fieldsq) {
+                    var ret = ["(a,b)=>"];
+                    fieldsq.each(function (name) {
+                        ret.push("a['" + name + "']==b['" + name + "']");
+                        ret.push("&&");
+                    });
+                    ret.length = ret.length - 1;
+                    return ret.join("");
+                }, function (a, b) {
+                    return a.toString() === b.toString();
+                });
+
+                comparer = dppiUtils.invokeProxy(arguments.callee, comparer);
+                selector = dppiUtils.invokeProxy(arguments.callee, selector);
+
+                var letvar = this.letvar;
+
+                return leftq.select(
+                    function (leftItem) {
+                        var value = rightq.first(function (rightItem) {
+                            return comparer.call(letvar, leftItem, rightItem);
+                        });
+                        if (value || isLeft)
+                            return selector.call(letvar, leftItem, value || {});
+                    });
+            }
+        },
         extend = function (dest, source) {
             var _doExtend = function (dest, source) {
                 for (var key in source) {
@@ -384,9 +419,9 @@
             }
             return dest;
         },
-        mapKvo = function(keys,values){
+        mapKvo = function (keys, values) {
             var ret = {};
-            for(var i= 0,l = keys.length;i<l;++i){
+            for (var i = 0, l = keys.length; i < l; ++i) {
                 ret[keys[i]] = values[i];
             }
             return ret;
@@ -731,7 +766,7 @@
             var newArray = [];
             this.each(function (item, index) {
                 item = clause.call(this, item, index);
-                if (item === null || item === undefined) return;
+                if (item == null || item === undefined) return;
                 newArray[newArray.length] = item;
             });
             return fromq(this, newArray);
@@ -1224,31 +1259,7 @@
                 {cache: _self.where.apply(_self, [clause].concat(arraySlice(arguments, 2)))}]);
             ret.setNextCount(nextCount);
             return ret;
-        }
-        ,
-        /*
-         * group by clause function result
-         * example:
-         * groupBy(function(item,index){
-         *    return item.value>10;
-         * })
-         * //or
-         * groupBy("o=>o.value>10")
-         * //or
-         * groupBy("value,...")
-         * =================================
-         * result:
-         * {
-         *   cache:{
-         *    true:{items:Array},
-         *    false:{items:Array}
-         *    },
-         *    each:function(){},
-         *    select:function(){},
-         *    getData:function(){}
-         * }
-         *
-         * */
+        },
         groupBy: function (/*function|Lambda|String fields*/clause) {
             var cache = {};
             var g = extend({}, [grouped, {cache: cache, letvar: this.letvar}]);
@@ -1273,13 +1284,9 @@
             return g;
         }
         ,
-        max: function (/*Function|Lambda|String field*/clause) {
-            return maxOrMin(Math.max).apply(this, arguments);
-        }
+        max: maxOrMin(Math.max)
         ,
-        min: function (/*Function|Lambda|String field*/clause) {
-            return maxOrMin(Math.min).apply(this, arguments);
-        }
+        min: maxOrMin(Math.min)
         ,
 //example1:
 // var list = [{name:'bona shen',age:38},{name:'kerry',age:5}];
@@ -1347,14 +1354,10 @@
 // |  fromq("1,2,3,4,5").indexOf("o=>o==='5'");
 // |  fromq("1,2,3,4,5").indexOf(function(item){return item==='5';});
 // |  fromq("1,2,3,4,5").indexOf("3");
-        indexOf: function (/*Function|Lambda|value*/clause) {
-            return lastOrIndexOf(false).apply(this, arguments);
-        }
-        ,
-        lastIndexOf: function (/*Function|Lambda|value*/clause) {
-            return lastOrIndexOf(true).apply(this, arguments);
-        }
-        ,
+        indexOf: lastOrIndexOf(false),
+
+        lastIndexOf: lastOrIndexOf(true),
+
         toString: function (separator) {
             return this.toArray().join(separator || '');
         }
@@ -1400,86 +1403,19 @@
 // |   1,3,9,9,6
         random: function (/*Number*/count) {
             count = count || 1;
-            var ret = [], maxValue = this.size() , item, index;
+            var ret = [], maxValue = this.size(), item, index;
             for (var i = 0; i < count; i++) {
                 index = Math.floor(Math.random() * maxValue);
                 item = this.elementAt(index);
-                //if (item)
                 ret[i] = item;
-                //if(item===undefined){
-                //    console.log("index:",index," array length:",this.count()," item:",item);
-                //}
             }
             return fromq(this, ret);
         }
         ,
 //example:
 // |  fromq("1,2,3,4").join(fromq("2,3"),"(a,b)=>a-b==0","(a,b)=>{a:a,b:b}");
-        leftJoin: function (/*Array|fromq*/second, /*Function|lambda|String fields*/comparer, /*Function|Lambda*/selector) {
-            //return dppiUtils.invoking(arguments.callee, this.join, ['left', second, comparer, selector], this);
-            return this.join.apply(this, ['left'].concat(arraySlice(arguments)));
-        }
-        ,
-        innerJoin: function (/*Array|fromq*/second, /*Function|lambda|String fields*/comparer, /*Function|Lambda*/selector) {
-            //return dppiUtils.invoking(arguments.callee, this.join, ['inner', second, comparer, selector], this);
-            //return this.join('inner', second, comparer, selector);
-            return this.join.apply(this, ['inner'].concat(arraySlice(arguments)));
-        }
-        ,
-        join: function (/*String*/joinType, /*Array|fromq*/second, /*Function|lambda|String fields*/comparer, /*Function|Lambda*/selector) {
-            var type = {
-                left: false, inner: false, getType: function () {
-                    for (var name in this) {
-                        if (this[name])return name
-                    }
-                },
-                isLeft: function () {
-                    return this.left;
-                },
-                isInner: function () {
-                    return this.inner;
-                },
-                isType: function (it) {
-                    return it in this && typeof this[it] === 'boolean';
-                }
-
-            };
-            if (!isString(joinType) || !(type.isType(joinType)))return fromq([]);
-            type[joinType] = true;
-
-            var leftq = fromq(this), rightq = fromq(second);
-
-            selector = clauseConverter(selector, null, function (a, b) {
-                return {"left": a, "right": b};
-            });
-
-            comparer = clauseConverter(comparer, function (fieldsq) {
-                var ret = ["(a,b)=>"];
-                fieldsq.each(function (name) {
-                    ret.push("a['" + name + "']==b['" + name + "']");
-                    ret.push("&&");
-                });
-                ret.length = ret.length - 1;
-                return ret.join("");
-            }, function (a, b) {
-                return a.toString() === b.toString();
-            });
-
-            comparer = dppiUtils.invokeProxy(arguments.callee, comparer);
-            selector = dppiUtils.invokeProxy(arguments.callee, selector);
-
-            var letvar = this.letvar;
-
-            return leftq.select(
-                function (leftItem) {
-                    var value = rightq.first(function (rightItem) {
-                        return comparer.call(letvar, leftItem, rightItem);
-                    });
-                    if (value || type.isLeft())
-                        return selector.call(letvar, leftItem, value || {});
-                });
-        }
-        ,
+        leftJoin: leftOrInnerJoin(true),
+        innerJoin: leftOrInnerJoin(false),
 //example:
 //|  fromq(/ab*/g).match("abb switch,i like abb").each("o=>console.log(o)");
         match: function (/*String*/str) {
@@ -1502,16 +1438,10 @@
 // | fromq([1,2,3]).notIn([2,4],{left:distinct,right:distinct}).each(log); //out:1,3
 // | fromq([1,2,3]).notIn([2,4],"o=>o").each(log); //out:1,3
 // | fromq([1,2,3]).notIn([2,4],{left:"o=>o",right:"o=>o"}).each(log); //out:1,3
-        notIn: function (/*fromq|array*/it, /*lambda|function|string fields|{left:'',right:''}*/distinctClause) {
-            return inOrNotIn(true).apply(this, arguments);
-        }
-        ,
+        notIn: inOrNotIn(true),
 //eg:
 // @see notIn
-        in: function (/*fromq|array*/it, /*lambda|function|string fields|{left:'',right:''}*/distinctClause) {
-            return inOrNotIn(false).apply(this, arguments);
-        }
-        ,
+        in: inOrNotIn(false),
 //eg:
 // |fromq([1,2,3]).equal(fromq.utils.range(1,4))
         equal: function (/*fromq|array*/it, /*lambda|function*/compareClause) {
@@ -1622,7 +1552,7 @@
         extend: extend,
         //example:
         // | mapKvo(['name','age'],['kerry',5]);
-        mapKvo : mapKvo
+        mapKvo: mapKvo
     });
 
     extend(fromq, {
