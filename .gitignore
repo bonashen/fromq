@@ -41,3 +41,9 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
+
+#webstorm files
+.idea
+
+#npm debug log file
+npm-debug*

@@ -1591,7 +1591,7 @@
     }
 
 //for AMD
-    if (isFunction(define) && define.amd) {
+    if (typeof(define)!=='undefined' && isFunction(define) &&define.amd) {
         define(null, [], function () {
             return fromq;
         });
