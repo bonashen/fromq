@@ -63,14 +63,23 @@
             throw new Error("fromq/method error," + msg);
         };
 
-    var reGetClass = /^\[object\s+(\w+)\s*]$/;
+    //var reGetClass = /^\[object\s+(\w+)\s*]$/;
+
+    var objectRegExp = /^\[object (\S+)\]$/;
 
     var toString = Object.prototype.toString;
 
     var getClass = function (it) {
-            var cls = toString.call(it);
-            reGetClass.lastIndex = 0;
-            return reGetClass.exec(cls)[1];
+            var ret = typeof it;
+            if (ret !== 'object') {
+                return ret;
+            }
+            return toString.call(it)
+                .replace(objectRegExp, '$1');
+
+            //var cls = toString.call(it);
+            //reGetClass.lastIndex = 0;
+            //return reGetClass.exec(cls)[1];
         },
         dppiCache = {},
 
@@ -419,7 +428,7 @@
             }
             return dest;
         },
-        mapKvo = function (keys, values) {
+        makeKvo = function (keys, values) {
             var ret = {};
             for (var i = 0, l = keys.length; i < l; ++i) {
                 ret[keys[i]] = values[i];
@@ -1551,8 +1560,8 @@
         //| extend({},[{name:'bona shen'},{age:38}]);
         extend: extend,
         //example:
-        // | mapKvo(['name','age'],['kerry',5]);
-        mapKvo: mapKvo
+        // | makeKvo(['name','age'],['kerry',5]);
+        makeKvo: makeKvo
     });
 
     extend(fromq, {
