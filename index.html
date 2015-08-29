@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>Fromq by bonashen</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">Fromq</h1>
+      <h2 class="project-tagline">support collection operator like linq function in javascript</h2>
+      <a href="https://github.com/bonashen/fromq" class="btn">View on GitHub</a>
+      <a href="https://github.com/bonashen/fromq/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/bonashen/fromq/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+      <h1>
+<a id="fromq" class="anchor" href="#fromq" aria-hidden="true"><span class="octicon octicon-link"></span></a>fromq</h1>
+
+<p>fromq.js 是实现javascript环境中linq方法的一种实现。对数组内的对象进行each,where,select,orderby, groupby,count,max,min,sum,avg等操作，同时适用则表达式的匹配操作。
+该项目是在<a href="http://jslinq.codeplex.com/">JSLINQ</a>基础上扩展而来，代码已经重新修改，使<a href="http://jslinq.codeplex.com/">JSLINQ</a>支持Lambda,正则表达式,字符串的操作，增加了集合的操作except、intersect、union、join、all、any、some、indexOf、contains、sum、avg.
+除统计功能函数外，其他的函数都支持链式调用。即如下面代码：</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">require</span>([<span class="pl-s"><span class="pl-pds">"</span>your path/fromq.js<span class="pl-pds">"</span></span>],<span class="pl-k">function</span>(<span class="pl-smi">fromq</span>){
+    <span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-c1">fromq</span>(<span class="pl-s"><span class="pl-pds">"</span>1,2,3,4,5<span class="pl-pds">"</span></span>).<span class="pl-c1">each</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){
+        <span class="pl-en">console</span><span class="pl-c1">.log</span>(item);
+    }).<span class="pl-c1">sum</span>());
+});</pre></div>
+
+<p>下面的样例代码一般省略require部分，除非有其他引用时，会增加require部分，以求代码的可读性。
+如果想了解lambda相关的知识，请移步这里:
+      <a href="http://www.bonashen.com/post/develop/ria-develop/2015-04-08-javascript-lambda-bian-yi-qi-shi-xian">JavaScript Lambda 编译器实现</a>
+      <a href="http://www.bonashen.com/post/develop/ria-develop/2015-04-08-javascriptyu-lambda">JavaScript与Lambda</a></p>
+
+<p>本篇只是对fromq.js的各功能调用进行说明与举例。fromq.js源代码已经放置在github上，需要fromq.js源代码请<a href="https://github.com/bonashen/fromq">移步这里</a>.</p>
+
+<p>相关的使用方法，请关注<a href="http://www.bonashen.com">我的博客,http://www.bonashen.com</a>。</p>
+
+<hr>
+
+<h3>
+<a id="1字符串分隔" class="anchor" href="#1%E5%AD%97%E7%AC%A6%E4%B8%B2%E5%88%86%E9%9A%94" aria-hidden="true"><span class="octicon octicon-link"></span></a>1.字符串分隔</h3>
+
+<p>fromq的字符串的默认分隔符为"<strong>,</strong>".</p>
+
+<div class="highlight highlight-javascript"><pre>    <span class="pl-c1">fromq</span>(<span class="pl-s"><span class="pl-pds">"</span>1,2,3,4,5<span class="pl-pds">"</span></span>).<span class="pl-c1">each</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){
+        <span class="pl-en">console</span><span class="pl-c1">.log</span>(item);
+    });</pre></div>
+
+<div class="highlight highlight-javascript"><pre>    <span class="pl-c1">fromq</span>(<span class="pl-s"><span class="pl-pds">"</span>1,2,3,4,5<span class="pl-pds">"</span></span>,<span class="pl-s"><span class="pl-pds">"</span>,<span class="pl-pds">"</span></span>).<span class="pl-c1">each</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){   <span class="pl-c">//指定分隔符,</span>
+        <span class="pl-en">console</span><span class="pl-c1">.log</span>(item);
+    });</pre></div>
+
+<hr>
+
+<h3>
+<a id="2数组操作" class="anchor" href="#2%E6%95%B0%E7%BB%84%E6%93%8D%E4%BD%9C" aria-hidden="true"><span class="octicon octicon-link"></span></a>2.数组操作</h3>
+
+<h4>
+<a id="21-常用操作" class="anchor" href="#21-%E5%B8%B8%E7%94%A8%E6%93%8D%E4%BD%9C" aria-hidden="true"><span class="octicon octicon-link"></span></a>2.1 常用操作</h4>
+
+<h5>
+<a id="let" class="anchor" href="#let" aria-hidden="true"><span class="octicon octicon-link"></span></a>let</h5>
+
+<p>调用格式：<code>let(/*Object*/value);</code>
+功能描述：提供fromq后缀方法中的访问外部的引用。详见 <a href="http://www.bonashen.com/post/develop/ria-develop/2015-04-28-fromq.letgong-neng-shi-yong">fromq.let功能使用</a>。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>(<span class="pl-s"><span class="pl-pds">"</span>1,2,3<span class="pl-pds">"</span></span>).<span class="pl-c1">let</span>(<span class="pl-c1">2</span>).<span class="pl-c1">where</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i,v)=&gt;o&gt;=v<span class="pl-pds">"</span></span>);<span class="pl-c">//[2,3]</span>
+
+<span class="pl-c1">fromq</span>(<span class="pl-s"><span class="pl-pds">"</span>1,2,3<span class="pl-pds">"</span></span>).<span class="pl-c1">let</span>({value<span class="pl-k">:</span><span class="pl-c1">2</span>}).<span class="pl-c1">where</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i,v)=&gt;o&gt;=v.value<span class="pl-pds">"</span></span>);<span class="pl-c">//[2,3]</span>
+
+<span class="pl-c1">fromq</span>(<span class="pl-s"><span class="pl-pds">"</span>1,2,3<span class="pl-pds">"</span></span>).<span class="pl-c1">let</span>(<span class="pl-c1">2</span>).<span class="pl-c1">where</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i,v)=&gt;o&gt;v<span class="pl-pds">"</span></span>).<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i,v)=&gt;o*v<span class="pl-pds">"</span></span>); <span class="pl-c">//[6]</span></pre></div>
+
+<h5>
+<a id="each--foreach" class="anchor" href="#each--foreach" aria-hidden="true"><span class="octicon octicon-link"></span></a>each | forEach</h5>
+
+<p>调用格式：<code>each(/*function|Lambda*/callback=function(/*object*/item,/*Number*/index){return true;})</code>
+功能描述：遍历所有的数组元素，直到callback返回值非null | undefined终止.
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>, <span class="pl-c1">2</span>, <span class="pl-c1">3</span>]).<span class="pl-c1">each</span>(<span class="pl-k">function</span> (<span class="pl-smi">item</span>, <span class="pl-smi">index</span>) {
+        <span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">'</span>index at:<span class="pl-pds">'</span></span>, index, <span class="pl-s"><span class="pl-pds">'</span><span class="pl-cce">\t</span>value is:<span class="pl-pds">'</span></span>, item);
+});
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>, <span class="pl-c1">2</span>, <span class="pl-c1">3</span>]).<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>(item, index) =&gt;console.log('index at:', index, '<span class="pl-cce">\t</span>value is:', item)<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>, <span class="pl-c1">2</span>, <span class="pl-c1">3</span>]).<span class="pl-c1">let</span>({value<span class="pl-k">:</span><span class="pl-c1">3</span>,log<span class="pl-k">:</span><span class="pl-en">console</span><span class="pl-c1">.log</span>}).<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>(o, i,n) =&gt;n.log('index at:', i, '<span class="pl-cce">\t</span>value is:', o,'<span class="pl-cce">\t</span>'+o+'*'+n.value+'=',n.value*o)<span class="pl-pds">"</span></span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="select--map" class="anchor" href="#select--map" aria-hidden="true"><span class="octicon octicon-link"></span></a>select | map</h5>
+
+<p>调用格式：<code>select(/*Function|Lambda|String fields*/clause=function(/*Object*/item,/*Number*/index){return {};})</code>
+功能描述：遍历所有的数组元素，将clause()返回值作为数组元素重新组织为新数组并返回新的fromq.
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">4</span>,<span class="pl-c1">5</span>,<span class="pl-c1">6</span>])
+    .<span class="pl-c1">select</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>,<span class="pl-smi">index</span>){
+        <span class="pl-k">return</span> {index<span class="pl-k">:</span>index,value<span class="pl-k">:</span>item};
+        });
+
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">4</span>,<span class="pl-c1">5</span>,<span class="pl-c1">6</span>])
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i)=&gt;{index:i,value:o}<span class="pl-pds">"</span></span>);</pre></div>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c">//many feilds select example</span>
+<span class="pl-k">var</span> log<span class="pl-k">=</span><span class="pl-c1">fromq</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>,<span class="pl-c1">true</span>);
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">4</span>,<span class="pl-c1">5</span>,<span class="pl-c1">6</span>])
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i)=&gt;{index:i,value:o}<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(log)
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>index,value<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(log)
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>value<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(log);</pre></div>
+
+<hr>
+
+<h5>
+<a id="where--filter" class="anchor" href="#where--filter" aria-hidden="true"><span class="octicon octicon-link"></span></a>where | filter</h5>
+
+<p>调用格式：<code>where(/*Function|Lambda*/clause=function(/*Object*/item,/*Number*/index){})</code>
+功能描述：遍历所有的数据元素，将clause()返回值为true的数组元素重新组织为新数组并返回新的fromq.
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre> <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">4</span>,<span class="pl-c1">5</span>,<span class="pl-c1">6</span>])
+    .<span class="pl-c1">where</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){
+        <span class="pl-k">return</span> item<span class="pl-k">&lt;</span><span class="pl-c1">5</span>
+        })
+     .<span class="pl-c1">each</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){  
+            <span class="pl-en">console</span><span class="pl-c1">.log</span>(item);
+    });
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">4</span>,<span class="pl-c1">5</span>,<span class="pl-c1">6</span>])
+    .<span class="pl-c1">where</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o&lt;5<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">4</span>,<span class="pl-c1">5</span>,<span class="pl-c1">6</span>])
+    .<span class="pl-c1">let</span>(<span class="pl-c1">5</span>)
+    .<span class="pl-c1">where</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i,n)=&gt;o&lt;n<span class="pl-pds">"</span></span>)
+    <span class="pl-k">let</span>(<span class="pl-en">console</span><span class="pl-c1">.log</span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i,log)=&gt;log(o)<span class="pl-pds">"</span></span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="concat" class="anchor" href="#concat" aria-hidden="true"><span class="octicon octicon-link"></span></a>concat</h5>
+
+<p>调用格式：<code>concat(/*Array|formq*/it)</code>
+功能描述：将原数组元素与需连接数组<strong>it</strong>或者<strong>it.toArray()</strong>进行数组连接操作并返回新的fromq，对原数组没有影响.
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>])
+    .<span class="pl-c1">concat</span>([<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">4</span>])
+    .<span class="pl-c1">each</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){  
+        <span class="pl-en">console</span><span class="pl-c1">.log</span>(item);
+    });
+
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>])
+    .<span class="pl-c1">concat</span>(<span class="pl-c1">fromq</span>([<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">4</span>]))
+    .<span class="pl-c1">each</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){  
+        <span class="pl-en">console</span><span class="pl-c1">.log</span>(item);
+    });    </pre></div>
+
+<hr>
+
+<h5>
+<a id="toarray" class="anchor" href="#toarray" aria-hidden="true"><span class="octicon octicon-link"></span></a>toArray</h5>
+
+<p>调用格式：<code>toArray(/*Array*/it,/*boolean*/overwrite)</code>
+功能描述：若it是数组时，默认清空it数组，并将当前数组数据追加至it数组中，并返回fromq内部数组引用.</p>
+
+<ul>
+<li>若overwrite为false,不清空it数组，直接将当前数组数据追加至it数组中。</li>
+</ul>
+
+<p>返回结果：Array|null
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre>    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">concat</span>([<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">4</span>]).<span class="pl-c1">toArray</span>();    </pre></div>
+
+<hr>
+
+<h5>
+<a id="distinct" class="anchor" href="#distinct" aria-hidden="true"><span class="octicon octicon-link"></span></a>distinct</h5>
+
+<p>调用格式：<code>distinct(/*Function|Lambda|String field*/clause=function(item,index){}, /*boolean*/distinctValue)</code>
+功能描述：遍历数组，依据clause()返回值作为数组元素唯一性判断，过滤重复项元素，重新组织并返回fromq.</p>
+
+<ul>
+<li>若clause为空时，以数组元素作为唯一性判断依据。</li>
+<li>若distinctValue为true时，clause()返回值作为新fromq的数组元素。</li>
+</ul>
+
+<p>返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre>    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">4</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">distinct</span>();    
+    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">4</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">distinct</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){<span class="pl-k">return</span> item;});
+    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">4</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">distinct</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o<span class="pl-pds">"</span></span>);
+    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">4</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">distinct</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o*2<span class="pl-pds">"</span></span>,<span class="pl-c1">true</span>);</pre></div>
+
+<hr>
+
+<h4>
+<a id="22-数组及元素检测" class="anchor" href="#22-%E6%95%B0%E7%BB%84%E5%8F%8A%E5%85%83%E7%B4%A0%E6%A3%80%E6%B5%8B" aria-hidden="true"><span class="octicon octicon-link"></span></a>2.2 数组及元素检测</h4>
+
+<h5>
+<a id="isempty" class="anchor" href="#isempty" aria-hidden="true"><span class="octicon octicon-link"></span></a>isEmpty</h5>
+
+<p>调用格式：<code>isEmpty();</code>
+功能描述：检测数组是否为空，若空为true。
+返回结果：false|true
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre>    <span class="pl-k">if</span>(<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">isEmpty</span>()){
+        <span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">'</span>The array is empty.<span class="pl-pds">'</span></span>);
+        }</pre></div>
+
+<hr>
+
+<h5>
+<a id="allevery" class="anchor" href="#allevery" aria-hidden="true"><span class="octicon octicon-link"></span></a>all|every</h5>
+
+<p>调用格式：<code>all(clause=function(/*Object*/item,/*Number*/index){});</code>
+功能描述：检测数组所有元素是否满足clause条件，都满足为true。
+返回结果：false|true
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre>    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">all</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>,<span class="pl-smi">index</span>){<span class="pl-k">return</span> item<span class="pl-k">&lt;=</span><span class="pl-c1">3</span>});    </pre></div>
+
+<hr>
+
+<h5>
+<a id="anysome" class="anchor" href="#anysome" aria-hidden="true"><span class="octicon octicon-link"></span></a>any|some</h5>
+
+<p>调用格式：<code>all(clause=function(/*Object*/item,/*Number*/index){});</code>
+功能描述：检测数组是否有满足clause条件的元素，有为true。
+返回结果：false|true
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre>    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">all</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>,<span class="pl-smi">index</span>){<span class="pl-k">return</span> item<span class="pl-k">&lt;=</span><span class="pl-c1">3</span>});    </pre></div>
+
+<hr>
+
+<h5>
+<a id="contains" class="anchor" href="#contains" aria-hidden="true"><span class="octicon octicon-link"></span></a>contains</h5>
+
+<p>调用格式：<code>contains(/*Function|Lambda|value*/clause=function(/*Object*/item,/*Number*/index){});</code>
+功能描述：检测数组是否有满足clause的元素，有为true
+返回结果：false|true
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre>    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">contains</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>,<span class="pl-smi">index</span>){<span class="pl-k">return</span> item<span class="pl-k">&lt;=</span><span class="pl-c1">3</span>});    </pre></div>
+
+<hr>
+
+<h4>
+<a id="23-定位数组元素" class="anchor" href="#23-%E5%AE%9A%E4%BD%8D%E6%95%B0%E7%BB%84%E5%85%83%E7%B4%A0" aria-hidden="true"><span class="octicon octicon-link"></span></a>2.3 定位数组元素</h4>
+
+<h5>
+<a id="indexof" class="anchor" href="#indexof" aria-hidden="true"><span class="octicon octicon-link"></span></a>indexOf</h5>
+
+<p>调用格式：<code>indexOf(/*Function|Lambda|value*/clause=function(/*Object*/item,/*Number*/index){});</code>
+功能描述：检索数组满足clause条件第一个元素的位置，没有则返回-1.
+返回结果：Number
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre>    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">indexOf</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>,<span class="pl-smi">index</span>){<span class="pl-k">return</span> item<span class="pl-k">&lt;=</span><span class="pl-c1">3</span>});    
+    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">indexOf</span>(<span class="pl-c1">3</span>);
+    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">indexOf</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o==3<span class="pl-pds">"</span></span>); 
+    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">let</span>(<span class="pl-c1">3</span>).<span class="pl-c1">indexOf</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i,n)=&gt;o==n<span class="pl-pds">"</span></span>);    </pre></div>
+
+<hr>
+
+<h5>
+<a id="first--head" class="anchor" href="#first--head" aria-hidden="true"><span class="octicon octicon-link"></span></a>first | head</h5>
+
+<p>调用格式：<code>first(/*Function|Lambda*/clause=function(/*Object*/item,/*Number*/index){});</code>
+功能描述：检索数组满足clause条件第一位元素，没有则返回null.</p>
+
+<ul>
+<li>若clause为空时，则返回数组第一位元素。</li>
+</ul>
+
+<p>返回结果：object|null</p>
+
+<p>调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre>    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">first</span>();  
+    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">first</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>,<span class="pl-smi">index</span>){<span class="pl-k">return</span> item<span class="pl-k">&lt;=</span><span class="pl-c1">3</span>});    
+    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">first</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o&lt;=3<span class="pl-pds">"</span></span>);  
+    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">let</span>({value<span class="pl-k">:</span><span class="pl-c1">3</span>}).<span class="pl-c1">first</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i,n)=&gt;o&lt;=n.value<span class="pl-pds">"</span></span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="firstordefault--headordefault" class="anchor" href="#firstordefault--headordefault" aria-hidden="true"><span class="octicon octicon-link"></span></a>firstOrDefault | headOrDefault</h5>
+
+<p>调用格式：<code>firstOrDefault(/*Function|Lambda*/clause=function(/*Object*/item,/*Number*/index){},defaultValue);</code>
+功能描述：检索数组满足clause条件第一位元素，没有则返回defaultValue.
+返回结果：object|defaultValue
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre>    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">firstOrDefault</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>,<span class="pl-smi">index</span>){<span class="pl-k">return</span> item<span class="pl-k">&gt;</span><span class="pl-c1">4</span>},<span class="pl-c1">4</span>);    
+    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">firstOrDefault</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o&gt;4<span class="pl-pds">"</span></span>,<span class="pl-c1">4</span>);    
+    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">let</span>({value<span class="pl-k">:</span><span class="pl-c1">4</span>}).<span class="pl-c1">firstOrDefault</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i,n)=&gt;o&gt;n.value<span class="pl-pds">"</span></span>,<span class="pl-c1">4</span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="last--tail" class="anchor" href="#last--tail" aria-hidden="true"><span class="octicon octicon-link"></span></a>last | tail</h5>
+
+<p>调用格式：<code>last(/*Function|Lambda*/clause=function(/*Object*/item,/*Number*/index){});</code>
+功能描述：检索数组满足clause条件末位元素，没有则返回null.
+返回结果：object|null
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre>    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">last</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>,<span class="pl-smi">index</span>){<span class="pl-k">return</span> item<span class="pl-k">&lt;=</span><span class="pl-c1">3</span>});    
+    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">last</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o&lt;=3<span class="pl-pds">"</span></span>);  
+    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">let</span>({value<span class="pl-k">:</span><span class="pl-c1">3</span>}).<span class="pl-c1">last</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i,n)=&gt;o&lt;=n.value<span class="pl-pds">"</span></span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="lastordefault--tailordefault" class="anchor" href="#lastordefault--tailordefault" aria-hidden="true"><span class="octicon octicon-link"></span></a>lastOrDefault | tailOrDefault</h5>
+
+<p>调用格式：<code>lastOrDefault(/*Function|Lambda*/clause=function(/*Object*/item,/*Number*/index){},defaultValue);</code>
+功能描述：检索数组满足clause条件末位元素，没有则返回defaultValue.
+返回结果：object|defaultValue
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">lastOrDefault</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>,<span class="pl-smi">index</span>){<span class="pl-k">return</span> item<span class="pl-k">&gt;</span><span class="pl-c1">4</span>},<span class="pl-c1">4</span>);    
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">lastOrDefault</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o&gt;4<span class="pl-pds">"</span></span>,<span class="pl-c1">4</span>);    
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">let</span>({value<span class="pl-k">:</span><span class="pl-c1">4</span>}).<span class="pl-c1">lastOrDefault</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i,n)=&gt;o&gt;n.value<span class="pl-pds">"</span></span>,<span class="pl-c1">4</span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="elementat" class="anchor" href="#elementat" aria-hidden="true"><span class="octicon octicon-link"></span></a>elementAt</h5>
+
+<p>调用格式：<code>elementAt(/*Number*/index);</code>
+功能描述：取位于index处的数组元素.
+返回结果：object
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">elementAt</span>(<span class="pl-c1">2</span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="elementatordefault" class="anchor" href="#elementatordefault" aria-hidden="true"><span class="octicon octicon-link"></span></a>elementAtOrDefault</h5>
+
+<p>调用格式：<code>elementAtOrDefault(/*Number*/index,defaultValue);</code>
+功能描述：取位于index处的数组元素,如果index越界返回defaultValue.
+返回结果：object|defaultValue
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">elementAtOrDefault</span>(<span class="pl-c1">3</span>,<span class="pl-c1">4</span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="take" class="anchor" href="#take" aria-hidden="true"><span class="octicon octicon-link"></span></a>take</h5>
+
+<p>调用格式：<code>take(/*number*/top, /*function|Lambda*/clause=function(item,index){});</code>
+功能描述：依据clause()返回值过滤后,取前top数量的元素,重新组织并返回fromq.
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">take</span>(<span class="pl-c1">2</span>);
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">take</span>(<span class="pl-c1">2</span>,<span class="pl-k">function</span>(<span class="pl-smi">item</span>){<span class="pl-k">return</span> item<span class="pl-k">&lt;</span><span class="pl-c1">4</span>});
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">take</span>(<span class="pl-c1">2</span>,<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o&lt;4<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">let</span>({value<span class="pl-k">:</span><span class="pl-c1">4</span>}).<span class="pl-c1">take</span>(<span class="pl-c1">2</span>,<span class="pl-s"><span class="pl-pds">"</span>(o,i,n)=&gt;o&lt;n.value<span class="pl-pds">"</span></span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="skip" class="anchor" href="#skip" aria-hidden="true"><span class="octicon octicon-link"></span></a>skip</h5>
+
+<p>调用格式：<code>skip(/*number*/count, /*function|Lambda*/clause=function(item,index){});</code>
+功能描述：依据clause()返回值过滤后,从count处开始取剩余的元素，重新组织并返回fromq.
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">skip</span>(<span class="pl-c1">2</span>);
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">skip</span>(<span class="pl-c1">2</span>,<span class="pl-k">function</span>(<span class="pl-smi">item</span>){<span class="pl-k">return</span> item<span class="pl-k">&lt;</span><span class="pl-c1">4</span>});
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">skip</span>(<span class="pl-c1">2</span>,<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o&lt;4<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">let</span>({value<span class="pl-k">:</span><span class="pl-c1">4</span>}).<span class="pl-c1">skip</span>(<span class="pl-c1">2</span>,<span class="pl-s"><span class="pl-pds">"</span>(o,i,n)=&gt;o&lt;n.value<span class="pl-pds">"</span></span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="takerange" class="anchor" href="#takerange" aria-hidden="true"><span class="octicon octicon-link"></span></a>takeRange</h5>
+
+<p>调用格式：<code>takeRange(/*number*/start,/*number*/end, /*function|Lambda*/clause=function(item,index){});</code>
+功能描述：依据clause()返回值过滤后，取start至end处的数组元素，并重新组织并返回fromq.
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">takeRange</span>();<span class="pl-c">//获得同样数组元素的新fromq对象</span>
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">takeRange</span>(<span class="pl-c1">2</span>);<span class="pl-c">//获得从2开始后剩余数组元素组成的fromq对象</span>
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">takeRange</span>(<span class="pl-c1">2</span>,<span class="pl-c1">3</span>);
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">takeRange</span>(<span class="pl-c1">2</span>,<span class="pl-k">function</span>(<span class="pl-smi">item</span>){<span class="pl-k">return</span> item<span class="pl-k">&lt;</span><span class="pl-c1">4</span>});
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">takeRange</span>(<span class="pl-c1">2</span>,<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o&lt;4<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">let</span>({value<span class="pl-k">:</span><span class="pl-c1">4</span>}).<span class="pl-c1">takeRange</span>(<span class="pl-c1">2</span>,<span class="pl-s"><span class="pl-pds">"</span>(o,i,n)=&gt;o&lt;n.value<span class="pl-pds">"</span></span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="random" class="anchor" href="#random" aria-hidden="true"><span class="octicon octicon-link"></span></a>random</h5>
+
+<p>调用格式：<code>random(/*number*/count);</code>
+功能描述：随机从数组中选择count数量的元素，并重新组织并返回fromq.
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> s <span class="pl-k">=</span> <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">3</span>,<span class="pl-c1">6</span>,<span class="pl-c1">9</span>]).<span class="pl-c1">random</span>(<span class="pl-c1">5</span>).<span class="pl-c1">toString</span>(<span class="pl-s"><span class="pl-pds">"</span>,<span class="pl-pds">"</span></span>);
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(s);
+<span class="pl-c">/* out:</span>
+<span class="pl-c">1,3,9,9,6</span>
+<span class="pl-c">*/</span></pre></div>
+
+<hr>
+
+<h4>
+<a id="24-数组统计" class="anchor" href="#24-%E6%95%B0%E7%BB%84%E7%BB%9F%E8%AE%A1" aria-hidden="true"><span class="octicon octicon-link"></span></a>2.4 数组统计</h4>
+
+<h5>
+<a id="size" class="anchor" href="#size" aria-hidden="true"><span class="octicon octicon-link"></span></a>size</h5>
+
+<p>调用格式：<code>size();</code>
+功能描述：统计数组元素的数量.
+返回结果：Number
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre>fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">random</span>(<span class="pl-c1">100</span>,<span class="pl-c1">null</span>,<span class="pl-c1">1000</span>)
+    .<span class="pl-c1">let</span>(<span class="pl-c1">2</span>)
+    .<span class="pl-c1">where</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i,v)=&gt;o%v==0<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">size</span>();</pre></div>
+
+<hr>
+
+<h5>
+<a id="max" class="anchor" href="#max" aria-hidden="true"><span class="octicon octicon-link"></span></a>max</h5>
+
+<p>调用格式：<code>max(/*Function|Lambda|String field*/clause=function(item){});</code>
+功能描述：指定列或clause()返回值的最大数的数组元素.
+返回结果：object
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">max</span>();<span class="pl-c">//3</span>
+
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">max</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){<span class="pl-k">return</span> item;});<span class="pl-c">//3</span>
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">max</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o<span class="pl-pds">"</span></span>);<span class="pl-c">//3</span>
+
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>max:<span class="pl-cce">\t</span><span class="pl-pds">"</span></span>,<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>])
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i)=&gt;{index:i,value:o}<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">max</span>(<span class="pl-s"><span class="pl-pds">"</span>value<span class="pl-pds">"</span></span>));<span class="pl-c">//3</span></pre></div>
+
+<p><img src="https://geekpics.net/images/2015/04/29/f5wi18.png" alt="Image Title"></p>
+
+<hr>
+
+<h5>
+<a id="min" class="anchor" href="#min" aria-hidden="true"><span class="octicon octicon-link"></span></a>min</h5>
+
+<p>调用格式：<code>min(/*Function|Lambda|String field*/clause=function(item){});</code>
+功能描述：指定列或clause()返回值的最小数的数组元素.
+返回结果：object
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">min</span>();<span class="pl-c">//1</span>
+
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">min</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){<span class="pl-k">return</span> item;});<span class="pl-c">//1</span>
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">min</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o<span class="pl-pds">"</span></span>);<span class="pl-c">//1</span>
+
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>min:<span class="pl-cce">\t</span><span class="pl-pds">"</span></span>,<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>])
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i)=&gt;{index:i,value:o}<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">min</span>(<span class="pl-s"><span class="pl-pds">"</span>value<span class="pl-pds">"</span></span>));<span class="pl-c">//1</span></pre></div>
+
+<hr>
+
+<h5>
+<a id="sum--aggregate" class="anchor" href="#sum--aggregate" aria-hidden="true"><span class="octicon octicon-link"></span></a>sum | aggregate</h5>
+
+<p>调用格式：<code>sum(/*Function|Lambda|String fields*/clause=function(item,/*Number*/index));</code>
+功能描述：统计指定列或clause()返回值的和.
+返回结果：Number|Float|NaN
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">sum</span>();
+
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">sum</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){<span class="pl-k">return</span> item;});
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">sum</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o<span class="pl-pds">"</span></span>);
+
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>sum:<span class="pl-cce">\t</span><span class="pl-pds">"</span></span>,<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>])
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i)=&gt;{index:i,value:o}<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">sum</span>(<span class="pl-s"><span class="pl-pds">"</span>value<span class="pl-pds">"</span></span>));</pre></div>
+
+<hr>
+
+<h5>
+<a id="avg--average" class="anchor" href="#avg--average" aria-hidden="true"><span class="octicon octicon-link"></span></a>avg | average</h5>
+
+<p>调用格式：<code>avg(/*Function|Lambda|String fields*/clause=function(item,/*Number*/index));</code>
+功能描述：统计指定列或clause()返回值的平均数.
+返回结果：Number|Float|NaN
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">avg</span>();
+
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">avg</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){<span class="pl-k">return</span> item;});
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">avg</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o<span class="pl-pds">"</span></span>);
+
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>avg:<span class="pl-cce">\t</span><span class="pl-pds">"</span></span>,<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>])
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i)=&gt;{index:i,value:o}<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">avg</span>(<span class="pl-s"><span class="pl-pds">"</span>value<span class="pl-pds">"</span></span>));</pre></div>
+
+<hr>
+
+<h4>
+<a id="25-排序分页与分组" class="anchor" href="#25-%E6%8E%92%E5%BA%8F%E5%88%86%E9%A1%B5%E4%B8%8E%E5%88%86%E7%BB%84" aria-hidden="true"><span class="octicon octicon-link"></span></a>2.5 排序分页与分组</h4>
+
+<h5>
+<a id="orderby--sort" class="anchor" href="#orderby--sort" aria-hidden="true"><span class="octicon octicon-link"></span></a>orderBy | sort</h5>
+
+<p>调用格式：<code>orderBy(/*Function|Lambda|String fields*/clause=function(item){},customCompar=false);</code>
+功能描述：依据各数组元素的clause(item)返回值对数组元素进行升序排序。若customCompare为true,侧依据clause(a,b)返回值-1，0，1进行数组元素升序排序。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">orderBy</span>();
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">orderBy</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o<span class="pl-pds">"</span></span>);  <span class="pl-c">//order by value.</span>
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>])
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i)=&gt;{index:i,value:o}<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">orderBy</span>(<span class="pl-s"><span class="pl-pds">"</span>value,index<span class="pl-pds">"</span></span>);   <span class="pl-c">// order by object property value.</span>
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>])
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i)=&gt;{index:i,value:o}<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">orderBy</span>(<span class="pl-k">function</span>(<span class="pl-smi">a</span>,<span class="pl-smi">b</span>){    <span class="pl-c">//custom comparer</span>
+        <span class="pl-k">return</span> a.<span class="pl-c1">value</span><span class="pl-k">&lt;</span>b.<span class="pl-c1">value</span><span class="pl-k">?-</span><span class="pl-c1">1</span><span class="pl-k">:</span>a.<span class="pl-c1">value</span><span class="pl-k">&gt;</span>b.<span class="pl-c1">value</span><span class="pl-k">?</span><span class="pl-c1">1</span><span class="pl-k">:</span><span class="pl-c1">0</span>;  
+    },<span class="pl-c1">true</span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="orderbydescending--orderbydesc" class="anchor" href="#orderbydescending--orderbydesc" aria-hidden="true"><span class="octicon octicon-link"></span></a>orderByDescending | orderByDesc</h5>
+
+<p>调用格式：<code>orderByDescending(/*Function|Lambda|String fields*/clause=function(item){},customCompare=false);</code>
+功能描述：依据各数组元素的clause(item)返回值对数组元素进行降序排序。若customCompare为true,侧依据clause(a,b)返回值-1，0，1进行数组元素降序排序。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">orderByDescending</span>();
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>]).<span class="pl-c1">orderByDescending</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o<span class="pl-pds">"</span></span>);  <span class="pl-c">//order by value.</span>
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>])
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i)=&gt;{index:i,value:o}<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">orderByDescending</span>(<span class="pl-s"><span class="pl-pds">"</span>value,index<span class="pl-pds">"</span></span>);   <span class="pl-c">// order by object property value.</span>
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>])
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i)=&gt;{index:i,value:o}<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">orderByDescending</span>(<span class="pl-k">function</span>(<span class="pl-smi">a</span>,<span class="pl-smi">b</span>){    <span class="pl-c">//custom comparer</span>
+        <span class="pl-k">return</span> a.<span class="pl-c1">value</span><span class="pl-k">&lt;</span>b.<span class="pl-c1">value</span><span class="pl-k">?-</span><span class="pl-c1">1</span><span class="pl-k">:</span>a.<span class="pl-c1">value</span><span class="pl-k">&gt;</span>b.<span class="pl-c1">value</span><span class="pl-k">?</span><span class="pl-c1">1</span><span class="pl-k">:</span><span class="pl-c1">0</span>;  
+    },<span class="pl-c1">true</span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="paging" class="anchor" href="#paging" aria-hidden="true"><span class="octicon octicon-link"></span></a>paging</h5>
+
+<p>调用格式：<code>paging(/*Number*/nextCount,/*Function|Lambda*/clause=function(item,/*Number*/index){return true});</code>
+功能描述：依据各数组元素的clause(item,index)返回值对数组元素进行过滤后生成fromq，并缓存至paginger中。
+返回结果：paginger
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> paginger <span class="pl-k">=</span> fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">range</span>(<span class="pl-c1">100</span>).<span class="pl-c1">paging</span>(<span class="pl-c1">4</span>,<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o%21==0<span class="pl-pds">"</span></span>);
+paginger
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i,log)=&gt;log('page number:',i);o.each('(a,i,log)=&gt;log(a)',log)<span class="pl-pds">"</span></span>,<span class="pl-en">console</span><span class="pl-c1">.log</span>)
+    .<span class="pl-c1">gotoPage</span>(<span class="pl-c1">3</span>).<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>Current Page No:<span class="pl-pds">"</span></span>,paginger.<span class="pl-c1">getPageNo</span>());</pre></div>
+
+<hr>
+
+<h5>
+<a id="groupby" class="anchor" href="#groupby" aria-hidden="true"><span class="octicon octicon-link"></span></a>groupBy</h5>
+
+<p>调用格式：<code>groupBy(/*Function|Lambda|String fields*/clause=function(item,/*Number*/index){});</code>
+功能描述：依据各数组元素的clause(item,index)返回值对数组元素进行分组。clause(item,index)返回值可以是任何值，若为数组，则进行多层分组。
+返回结果：grouped
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">3</span>]).
+    <span class="pl-c1">groupBy</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o<span class="pl-pds">"</span></span>);  <span class="pl-c">//group by value.</span>
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">3</span>])
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i)=&gt;{index:i,value:o}<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">groupBy</span>(<span class="pl-s"><span class="pl-pds">"</span>value<span class="pl-pds">"</span></span>);   <span class="pl-c">// group by object property value.</span>
+
+ <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">3</span>])
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i)=&gt;{index:i,value:o}<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">let</span>({value<span class="pl-k">:</span><span class="pl-c1">2</span>})
+    .<span class="pl-c1">groupBy</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>,<span class="pl-smi">index</span>,<span class="pl-smi">n</span>){ 
+      <span class="pl-k">return</span>   item.<span class="pl-c1">value</span><span class="pl-k">&gt;</span>n.<span class="pl-c1">value</span><span class="pl-k">?</span><span class="pl-s"><span class="pl-pds">"</span>value&gt;<span class="pl-pds">"</span></span><span class="pl-k">+</span>n.<span class="pl-c1">value</span><span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">"</span>value&lt;=<span class="pl-pds">"</span></span><span class="pl-k">+</span>n.<span class="pl-c1">value</span>;
+    })
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>(g,i)=&gt;{group:g,sum:i.sum('value'),count:i.count()}<span class="pl-pds">"</span></span>)
+                              <span class="pl-c">//select group object,total each group item value.</span>
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">'</span>o=&gt;console.log(o)<span class="pl-pds">'</span></span>);
+</pre></div>
+
+<hr>
+
+<h5>
+<a id="countcountby" class="anchor" href="#countcountby" aria-hidden="true"><span class="octicon octicon-link"></span></a>count|countBy</h5>
+
+<p>调用格式：<code>count(/*Function|Lambda|String fields*/clause=function(item,/*Number*/index){});</code>
+功能描述：依据各数组元素的clause(item,index)返回值对数组元素进行分组计数。clause(item,index)返回值可以是任何值。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">3</span>])
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i)=&gt;{index:i,value:o}<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">let</span>({value<span class="pl-k">:</span><span class="pl-c1">2</span>})
+    .<span class="pl-c1">countBy</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>,<span class="pl-smi">index</span>,<span class="pl-smi">n</span>){ 
+      <span class="pl-k">return</span>   item.<span class="pl-c1">value</span><span class="pl-k">&gt;</span>n.<span class="pl-c1">value</span><span class="pl-k">?</span><span class="pl-s"><span class="pl-pds">"</span>value&gt;<span class="pl-pds">"</span></span><span class="pl-k">+</span>n.<span class="pl-c1">value</span><span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">"</span>value&lt;=<span class="pl-pds">"</span></span><span class="pl-k">+</span>n.<span class="pl-c1">value</span>;
+    })
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">'</span>o=&gt;console.log(o)<span class="pl-pds">'</span></span>);
+</pre></div>
+
+<p><img src="https://geekpics.net/images/2015/04/29/OYt8.png" alt="Image Title"></p>
+
+<hr>
+
+<h4>
+<a id="26-集合运算" class="anchor" href="#26-%E9%9B%86%E5%90%88%E8%BF%90%E7%AE%97" aria-hidden="true"><span class="octicon octicon-link"></span></a>2.6 集合运算</h4>
+
+<h5>
+<a id="union" class="anchor" href="#union" aria-hidden="true"><span class="octicon octicon-link"></span></a>union</h5>
+
+<p>调用格式：<code>union(/*Array|fromq*/second, /*Function|lambda|String FieldName*/clause=function(item,index){return distinct});</code>
+功能描述：依赖clause()返回值作为唯一值，合并两个数组并过滤相同项。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> People1 <span class="pl-k">=</span>  
+    [
+        { ID<span class="pl-k">:</span> <span class="pl-c1">1</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Bona<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">2</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Kerry<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Xue<span class="pl-pds">"</span></span> }
+    ];
+<span class="pl-k">var</span> People2 <span class="pl-k">=</span>  
+    [
+        { ID<span class="pl-k">:</span> <span class="pl-c1">1</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Bona<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">3</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Peter<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> }
+    ];
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">union</span>(People2,
+    <span class="pl-k">function</span> (<span class="pl-smi">item</span>) {
+        <span class="pl-k">return</span> item.<span class="pl-c1">ID</span>;
+    }).<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">union</span>(People2, <span class="pl-s"><span class="pl-pds">"</span>o=&gt;o.ID<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">union</span>(People2, <span class="pl-s"><span class="pl-pds">"</span>ID<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="intersect" class="anchor" href="#intersect" aria-hidden="true"><span class="octicon octicon-link"></span></a>intersect</h5>
+
+<p>调用格式：<code>intersect(/*Array|fromq*/second, /*Function|lambda|String FieldName*/clause=function(item,index){return distinct});</code>
+功能描述：依赖clause()返回值作为唯一值，过滤重复项后，检索两个数组相同项（相交），重新组织为fromq。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> People1 <span class="pl-k">=</span>  
+    [
+        { ID<span class="pl-k">:</span> <span class="pl-c1">1</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Bona<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">2</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Kerry<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Xue<span class="pl-pds">"</span></span> }
+    ];
+<span class="pl-k">var</span> People2 <span class="pl-k">=</span>  
+    [
+        { ID<span class="pl-k">:</span> <span class="pl-c1">1</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Bona<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">3</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Peter<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> }
+    ];
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">intersect</span>(People2,
+    <span class="pl-k">function</span> (<span class="pl-smi">item</span>) {
+        <span class="pl-k">return</span> item.<span class="pl-c1">ID</span>;
+    }).<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">intersect</span>(People2, <span class="pl-s"><span class="pl-pds">"</span>o=&gt;o.ID<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">intersect</span>(People2, <span class="pl-s"><span class="pl-pds">"</span>ID<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="except" class="anchor" href="#except" aria-hidden="true"><span class="octicon octicon-link"></span></a>except</h5>
+
+<p>调用格式：<code>except(/*Array|fromq*/second, /*Function|lambda|String FieldName*/clause=function(item,index){return distinct});</code>
+功能描述：依赖clause()返回值作为唯一值，过滤重复项后，检索两个数组不相同项（与非），重新组织为fromq。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> People1 <span class="pl-k">=</span>  
+    [
+        { ID<span class="pl-k">:</span> <span class="pl-c1">1</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Bona<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">2</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Kerry<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Xue<span class="pl-pds">"</span></span> }
+    ];
+<span class="pl-k">var</span> People2 <span class="pl-k">=</span>  
+    [
+        { ID<span class="pl-k">:</span> <span class="pl-c1">1</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Bona<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">3</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Peter<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> }
+    ];
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">except</span>(People2,
+    <span class="pl-k">function</span> (<span class="pl-smi">item</span>) {
+        <span class="pl-k">return</span> item.<span class="pl-c1">ID</span>;
+    }).<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">except</span>(People2, <span class="pl-s"><span class="pl-pds">"</span>o=&gt;o.ID<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">except</span>(People2, <span class="pl-s"><span class="pl-pds">"</span>ID<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="innerjoin" class="anchor" href="#innerjoin" aria-hidden="true"><span class="octicon octicon-link"></span></a>innerJoin</h5>
+
+<p>调用格式：<code>innerJoin(/*Array|fromq*/second, /*Function|lambda|String fields*/comparer=function(a,b){return true}, /*Function|Lambda*/selector=function(a,b){return {};});</code>
+功能描述：依赖comparer(a,b)返回值判断second集合中是否存在元素a，若存在则将selector(a,b)的返回值作为数组元素,若不存在则不调用selector(a,b)，并将selector(a,b)的值重新组织为fromq。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre> <span class="pl-k">var</span> People1 <span class="pl-k">=</span> 
+    [
+        { ID<span class="pl-k">:</span> <span class="pl-c1">1</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Bona<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">2</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Kerry<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Xue<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">3</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Peter<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">4</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>YingChun<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Xue<span class="pl-pds">"</span></span> }
+    ];
+<span class="pl-k">var</span> People2 <span class="pl-k">=</span>  
+    [
+        { ID<span class="pl-k">:</span> <span class="pl-c1">1</span>, Age<span class="pl-k">:</span><span class="pl-c1">38</span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">3</span>, Age<span class="pl-k">:</span><span class="pl-c1">11</span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">2</span>, Age<span class="pl-k">:</span><span class="pl-c1">5</span> }
+    ];
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">innerJoin</span>(People2, <span class="pl-s"><span class="pl-pds">"</span>(a,b)=&gt;a.ID==b.ID<span class="pl-pds">"</span></span>,
+        <span class="pl-s"><span class="pl-pds">"</span>(a,b)=&gt;{id:a.ID,name:a.FirstName+'  '+a.LastName,age:b.Age}<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">orderBy</span>(<span class="pl-s"><span class="pl-pds">"</span>age<span class="pl-pds">"</span></span>)    
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="leftjoin" class="anchor" href="#leftjoin" aria-hidden="true"><span class="octicon octicon-link"></span></a>leftJoin</h5>
+
+<p>调用格式：<code>leftJoin(/*Array|fromq*/second, /*Function|lambda|String fields*/comparer=function(a,b){return true}, /*Function|Lambda*/selector=function(a,b){return {};});</code>
+功能描述：依赖comparer(a,b)返回值判断second集合中是否存在元素a，若不存在将b置为空对象<code>{}</code>，无论存在与否都将selector(a,b)的返回值作为数组元素重新组织为fromq。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> People1 <span class="pl-k">=</span>  
+    [
+        { ID<span class="pl-k">:</span> <span class="pl-c1">1</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Bona<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">2</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Kerry<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Xue<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">3</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Peter<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">4</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>YingChun<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Xue<span class="pl-pds">"</span></span> }
+    ];
+<span class="pl-k">var</span> People2 <span class="pl-k">=</span>  
+    [
+        { ID<span class="pl-k">:</span> <span class="pl-c1">1</span>, Age<span class="pl-k">:</span><span class="pl-c1">38</span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">3</span>, Age<span class="pl-k">:</span><span class="pl-c1">11</span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">2</span>, Age<span class="pl-k">:</span><span class="pl-c1">5</span> }
+    ];
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">leftJoin</span>(People2,
+    <span class="pl-k">function</span> (<span class="pl-smi">a</span>,<span class="pl-smi">b</span>) {
+        <span class="pl-k">return</span> a.<span class="pl-c1">ID</span><span class="pl-k">==</span>b.<span class="pl-c1">ID</span>;
+    },<span class="pl-k">function</span>(<span class="pl-smi">a</span>,<span class="pl-smi">b</span>){
+        <span class="pl-k">return</span> {id<span class="pl-k">:</span>a.<span class="pl-c1">ID</span>,name<span class="pl-k">:</span>a.<span class="pl-c1">FirstName</span><span class="pl-k">+</span><span class="pl-s"><span class="pl-pds">"</span>  <span class="pl-pds">"</span></span><span class="pl-k">+</span>a.<span class="pl-c1">LastName</span>,age<span class="pl-k">:</span>b.<span class="pl-c1">Age</span>};    
+    }).<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">leftJoin</span>(People2, <span class="pl-s"><span class="pl-pds">"</span>(a,b)=&gt;a.ID==b.ID<span class="pl-pds">"</span></span>,
+        <span class="pl-s"><span class="pl-pds">"</span>(a,b)=&gt;{id:a.ID,name:a.FirstName+'  '+a.LastName,age:b.Age}<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">leftJoin</span>(People2, <span class="pl-s"><span class="pl-pds">"</span>ID<span class="pl-pds">"</span></span>,
+    <span class="pl-s"><span class="pl-pds">"</span>(a,b)=&gt;{id:a.ID,name:a.FirstName+'  '+a.LastName,age:b.Age}<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">orderBy</span>(<span class="pl-s"><span class="pl-pds">"</span>age<span class="pl-pds">"</span></span>)    
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="in--within" class="anchor" href="#in--within" aria-hidden="true"><span class="octicon octicon-link"></span></a>in | within</h5>
+
+<p>调用格式：<code>in(/*Array|fromq*/second, /*Function|lambda|String field*/distinctClause=function(item,index){return {};});</code>
+功能描述：先对second以distinctClause(item,index)返回值进行唯一选择，再对原数组元素以distinctClause(item,index)返回值作为唯一值判断second唯一集合中是否存在元素相同元素，若<strong>存在</strong>则将item作为数组元素重新组织为fromq。
+详细用法请查看<a href="http://www.bonashen.com/post/develop/ria-develop/2015-04-24-fromq.in-fromq.notingong-neng">fromq.in fromq.notIn功能用例</a>
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> People1 <span class="pl-k">=</span>  
+    [
+        { ID<span class="pl-k">:</span> <span class="pl-c1">1</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Bona<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">2</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Kerry<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Xue<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">3</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Peter<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">4</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>YingChun<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Xue<span class="pl-pds">"</span></span> }
+    ];
+<span class="pl-k">var</span> People2 <span class="pl-k">=</span>  
+    [
+       { ID<span class="pl-k">:</span> <span class="pl-c1">2</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Kerry<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Xue<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">3</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Peter<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> },
+    ];
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">in</span>(People2,<span class="pl-s"><span class="pl-pds">"</span>ID<span class="pl-pds">"</span></span>)
+   .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">in</span>(People2, <span class="pl-s"><span class="pl-pds">"</span>o=&gt;o.ID<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">in</span>(People2, <span class="pl-k">function</span>(<span class="pl-smi">item</span>){<span class="pl-k">return</span> item.<span class="pl-c1">ID</span>;})
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);</pre></div>
+
+<hr>
+
+<h5>
+<a id="notin--without" class="anchor" href="#notin--without" aria-hidden="true"><span class="octicon octicon-link"></span></a>notIn | without</h5>
+
+<p>调用格式：<code>notIn(/*Array|fromq*/second, /*Function|lambda|String field*/distinctClause=function(item,index){return {};});</code>
+功能描述：先对second以distinctClause(item,index)返回值进行唯一选择，再对原数组元素以distinctClause(item,index)返回值作为唯一值判断second唯一集合中是否存在元素相同元素，若<strong>不存在</strong>则将item作为数组元素重新组织为fromq。
+详细用法请查看<a href="http://www.bonashen.com/post/develop/ria-develop/2015-04-24-fromq.in-fromq.notingong-neng">fromq.in fromq.notIn功能用例</a>
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> People1 <span class="pl-k">=</span>  
+    [
+        { ID<span class="pl-k">:</span> <span class="pl-c1">1</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Bona<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">2</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Kerry<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Xue<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">3</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Peter<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">4</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>YingChun<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Xue<span class="pl-pds">"</span></span> }
+    ];
+<span class="pl-k">var</span> People2 <span class="pl-k">=</span>  
+    [
+       { ID<span class="pl-k">:</span> <span class="pl-c1">2</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Kerry<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Xue<span class="pl-pds">"</span></span> },
+        { ID<span class="pl-k">:</span> <span class="pl-c1">3</span>, FirstName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Peter<span class="pl-pds">"</span></span>, LastName<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>Shen<span class="pl-pds">"</span></span> },
+    ];
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">notIn</span>(People2,<span class="pl-s"><span class="pl-pds">"</span>ID<span class="pl-pds">"</span></span>)
+   .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">notIn</span>(People2, <span class="pl-s"><span class="pl-pds">"</span>o=&gt;o.ID<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>(People1)
+    .<span class="pl-c1">notIn</span>(People2, <span class="pl-k">function</span>(<span class="pl-smi">item</span>){<span class="pl-k">return</span> item.<span class="pl-c1">ID</span>;})
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);</pre></div>
+
+<hr>
+
+<h3>
+<a id="3数组分组对象grouped" class="anchor" href="#3%E6%95%B0%E7%BB%84%E5%88%86%E7%BB%84%E5%AF%B9%E8%B1%A1grouped" aria-hidden="true"><span class="octicon octicon-link"></span></a>3.数组分组对象(grouped)</h3>
+
+<p>分组对象是fromq().groupBy函数的返回结果集。他提供了对分组后的对象进行数组元素的遍历、选择，通过选择功能select你可以实现分组的统计功能。</p>
+
+<h4>
+<a id="each" class="anchor" href="#each" aria-hidden="true"><span class="octicon octicon-link"></span></a>each</h4>
+
+<p>调用格式：<code>each(/*Function|Lambda*/clause=function(/*Object*/group,/*fromq*/items){});</code>
+功能描述：遍历分组对象的数组元素，若clause()返回非null | undefined时结束遍历。
+返回结果：grouped
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c">//example1</span>
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">3</span>]).
+    <span class="pl-c1">groupBy</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o<span class="pl-pds">"</span></span>).
+    <span class="pl-c1">each</span>(<span class="pl-k">function</span>(<span class="pl-smi">group</span>,<span class="pl-smi">items</span>){
+               <span class="pl-en">console</span><span class="pl-c1">.log</span>(group);   <span class="pl-c">//print group value,also name 'group name'</span>
+    });
+ });
+ <span class="pl-c">//example2</span>
+<span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">3</span>])
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i)=&gt;{index:i,value:o}<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">let</span>({value<span class="pl-k">:</span><span class="pl-c1">2</span>})
+    .<span class="pl-c1">groupBy</span>(<span class="pl-s"><span class="pl-pds">"</span>(o,i,n)=&gt;o.value&gt;n.value?<span class="pl-pds">"</span></span>value<span class="pl-k">&gt;</span><span class="pl-s"><span class="pl-pds">"</span>+n.value:<span class="pl-pds">"</span></span>value<span class="pl-k">&lt;=</span><span class="pl-s"><span class="pl-pds">"</span>+n.value;</span>
+<span class="pl-s">    })</span>
+<span class="pl-s">    .select(<span class="pl-pds">"</span></span>(<span class="pl-smi">g</span>,<span class="pl-smi">i</span>)<span class="pl-k">=&gt;</span>{group<span class="pl-k">:</span>g,sum<span class="pl-k">:</span>i.<span class="pl-c1">sum</span>(<span class="pl-s"><span class="pl-pds">'</span>value<span class="pl-pds">'</span></span>),count<span class="pl-k">:</span>i.<span class="pl-c1">count</span>()}<span class="pl-s"><span class="pl-pds">"</span>)</span>
+<span class="pl-s">      //分组的统计</span>
+<span class="pl-s">    .each('o=&gt;console.log(o)');</span></pre></div>
+
+<hr>
+
+<h4>
+<a id="select" class="anchor" href="#select" aria-hidden="true"><span class="octicon octicon-link"></span></a>select</h4>
+
+<p>调用格式：<code>select(/*Function|Lambda*/clause=function(/*fromq*/group,/*fromq*/items){});</code>
+功能描述：遍历分组对象的数组元素，重新组织clause()返回值为fromq对象。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>, <span class="pl-c1">2</span>, <span class="pl-c1">3</span>, <span class="pl-c1">2</span>, <span class="pl-c1">3</span>, <span class="pl-c1">3</span>])
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">'</span>(o,i)=&gt;{index:i,value:o}<span class="pl-pds">'</span></span>)
+    .<span class="pl-c1">let</span>({value<span class="pl-k">:</span><span class="pl-c1">2</span>})    
+    .<span class="pl-c1">groupBy</span>(<span class="pl-s"><span class="pl-pds">'</span>(o,i,n)=&gt;o.value&gt;n.value? "value&gt;" + n.value: "value&lt;="+ n.value<span class="pl-pds">'</span></span>)
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">'</span>(g,i)=&gt;{group:g,sum:i.sum(<span class="pl-cce">\'</span>value<span class="pl-cce">\'</span>),count:i.count(),items:i.toArray()}<span class="pl-pds">'</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">'</span>o=&gt;console.log(o)<span class="pl-pds">'</span></span>);   </pre></div>
+
+<hr>
+
+<h4>
+<a id="count" class="anchor" href="#count" aria-hidden="true"><span class="octicon octicon-link"></span></a>count</h4>
+
+<p>调用格式：<code>count();</code>
+功能描述：对各分组的元素数量进行统计,集合分组名为新值对象，重新生成数组，并返回fromq。
+值对象的格式如下：</p>
+
+<div class="highlight highlight-javascript"><pre>{key<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">'</span>group name<span class="pl-pds">'</span></span> ,value<span class="pl-k">:</span> size}</pre></div>
+
+<p>返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>, <span class="pl-c1">2</span>, <span class="pl-c1">3</span>, <span class="pl-c1">2</span>, <span class="pl-c1">3</span>, <span class="pl-c1">3</span>])
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">'</span>(o,i)=&gt;{index:i,value:o}<span class="pl-pds">'</span></span>)
+    .<span class="pl-c1">let</span>({value<span class="pl-k">:</span><span class="pl-c1">2</span>})    
+    .<span class="pl-c1">groupBy</span>(<span class="pl-s"><span class="pl-pds">'</span>(o,i,n)=&gt;o.value&gt;n.value? "value&gt;" + n.value: "value&lt;="+ n.value<span class="pl-pds">'</span></span>)
+    .<span class="pl-c1">count</span>()
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">'</span>o=&gt;console.log(o)<span class="pl-pds">'</span></span>);   </pre></div>
+
+<hr>
+
+<h4>
+<a id="getcache" class="anchor" href="#getcache" aria-hidden="true"><span class="octicon octicon-link"></span></a>getCache</h4>
+
+<p>调用格式：<code>getCache();</code>
+功能描述：获取分组对象的数据。
+返回结果：object
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-en">console</span><span class="pl-c1">.log</span>(
+    <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>, <span class="pl-c1">2</span>, <span class="pl-c1">3</span>, <span class="pl-c1">2</span>, <span class="pl-c1">3</span>, <span class="pl-c1">3</span>]).
+    <span class="pl-c1">groupBy</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o<span class="pl-pds">"</span></span>).<span class="pl-c1">getCache</span>());
+</pre></div>
+
+<hr>
+
+<h3>
+<a id="4数组分页对象paginger" class="anchor" href="#4%E6%95%B0%E7%BB%84%E5%88%86%E9%A1%B5%E5%AF%B9%E8%B1%A1paginger" aria-hidden="true"><span class="octicon octicon-link"></span></a>4.数组分页对象(paginger)</h3>
+
+<p>分页对象是fromq().paging函数的返回结果集。他提供对数组元素按页的遍历、选择等fromq功能。</p>
+
+<h4>
+<a id="each-1" class="anchor" href="#each-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>each</h4>
+
+<p>调用格式：<code>each(/*Function|Lambda*/clause=function(/*fromq\*rdsq,/*Number*/pageNo){return false});</code>
+功能描述：遍历每一页，若clause()返回非null | undefined时结束遍历。
+返回结果：paginger
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> log<span class="pl-k">=</span><span class="pl-en">console</span><span class="pl-c1">.log</span>;
+<span class="pl-k">var</span> paginger <span class="pl-k">=</span> <span class="pl-c1">fromq</span>([<span class="pl-c1">1</span>,<span class="pl-c1">2</span>,<span class="pl-c1">3</span>,<span class="pl-c1">4</span>,<span class="pl-c1">5</span>,<span class="pl-c1">6</span>]).<span class="pl-c1">paging</span>(<span class="pl-c1">3</span>);
+paginger.<span class="pl-c1">each</span>(<span class="pl-k">function</span>(<span class="pl-smi">rdsq</span>,<span class="pl-smi">pageNo</span>){
+    <span class="pl-c1">log</span>(<span class="pl-s"><span class="pl-pds">"</span>Page No:<span class="pl-pds">"</span></span>,pageNo);    
+    rdsq.<span class="pl-c1">each</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>,<span class="pl-smi">index</span>){
+        <span class="pl-c1">log</span>(item);
+    });
+});
+
+<span class="pl-c">//for lambda</span>
+paginger.<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>(rdsq,i,log)=&gt;log('Page No:',i);rdsq.each('(o,i,log)=&gt;log(o)',log)<span class="pl-pds">"</span></span>,log);</pre></div>
+
+<hr>
+
+<h4>
+<a id="select-1" class="anchor" href="#select-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>select</h4>
+
+<p>调用格式：<code>select(/*Function|Lambda*/clause=function(/*fromq*/rdsq,/*Number*/pageNo){});</code>
+功能描述：遍历每一页，按页重新组织clause()返回值为fromq对象。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> paginger <span class="pl-k">=</span> fromq.<span class="pl-c1">range</span>(<span class="pl-c1">100</span>).<span class="pl-c1">paging</span>(<span class="pl-c1">5</span>);
+paginger.<span class="pl-c1">select</span>(<span class="pl-k">function</span>(<span class="pl-smi">rdsq</span>,<span class="pl-smi">pageNo</span>){
+    <span class="pl-k">return</span> {pageNo<span class="pl-k">:</span>pageNo,count<span class="pl-k">:</span>rdsq.<span class="pl-c1">count</span>(),sum<span class="pl-k">:</span>rdsq.<span class="pl-c1">sum</span>(),avg<span class="pl-k">:</span>rdsq.<span class="pl-c1">avg</span>()};
+}).<span class="pl-c1">each</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){
+    <span class="pl-en">console</span><span class="pl-c1">.log</span>(item);
+});
+<span class="pl-c">//for lambda</span>
+paginger
+    .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>(rdsq,pageNo)=&gt;{pageNo:pageNo,count:rdsq.count(),sum:rdsq.sum(),avg:rdsq.avg()}<span class="pl-pds">"</span></span>)
+    .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt; console.log(o)<span class="pl-pds">"</span></span>);</pre></div>
+
+<hr>
+
+<h4>
+<a id="setnextcount" class="anchor" href="#setnextcount" aria-hidden="true"><span class="octicon octicon-link"></span></a>setNextCount</h4>
+
+<p>调用格式：<code>setNextCount(/*Number*/count);</code>
+功能描述：设置每页的记录数量。
+返回结果：null
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre>paginger.<span class="pl-c1">setNextCount</span>(<span class="pl-c1">10</span>);</pre></div>
+
+<hr>
+
+<h4>
+<a id="pagecount" class="anchor" href="#pagecount" aria-hidden="true"><span class="octicon octicon-link"></span></a>pageCount</h4>
+
+<p>调用格式：<code>pageCount();</code>
+功能描述：依据每一页的记录数量与缓存的记录数计算总页数。
+返回结果：Number&gt;=0
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> pageCount <span class="pl-k">=</span> fromq.<span class="pl-c1">range</span>(<span class="pl-c1">100</span>).<span class="pl-c1">paging</span>(<span class="pl-c1">6</span>).<span class="pl-c1">pageCount</span>();
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>page count:<span class="pl-pds">"</span></span>,pageCount);</pre></div>
+
+<hr>
+
+<h4>
+<a id="getpageno" class="anchor" href="#getpageno" aria-hidden="true"><span class="octicon octicon-link"></span></a>getPageNo</h4>
+
+<p>调用格式：<code>getPageNo(/*object*/item);</code>
+功能描述：返回item所处页的页码，若item=null | undefined,则返回当前页的页码。
+返回结果：Number
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> paginger <span class="pl-k">=</span> fromq.<span class="pl-c1">range</span>(<span class="pl-c1">100</span>).<span class="pl-c1">paging</span>(<span class="pl-c1">6</span>);
+paginger.<span class="pl-c1">last</span>();
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>Current Page No:<span class="pl-pds">"</span></span>,paginger.<span class="pl-c1">getPageNo</span>());</pre></div>
+
+<hr>
+
+<h4>
+<a id="isempty-1" class="anchor" href="#isempty-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>isEmpty</h4>
+
+<p>调用格式：<code>isEmpty();</code>
+功能描述：判断Paginger的缓存数据是否为空。
+返回结果：true|false
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> paginger <span class="pl-k">=</span> fromq.<span class="pl-c1">range</span>(<span class="pl-c1">100</span>).<span class="pl-c1">paging</span>(<span class="pl-c1">6</span>,<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o&gt;100<span class="pl-pds">"</span></span>);
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>Paginger is empty:<span class="pl-pds">"</span></span>,paginger.<span class="pl-c1">isEmpty</span>());</pre></div>
+
+<hr>
+
+<h4>
+<a id="getcache-1" class="anchor" href="#getcache-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>getCache</h4>
+
+<p>调用格式：<code>getCache();</code>
+功能描述：获取Paginger的缓存数据。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> paginger <span class="pl-k">=</span> fromq.<span class="pl-c1">range</span>(<span class="pl-c1">100</span>).<span class="pl-c1">paging</span>(<span class="pl-c1">6</span>,<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o%15==0<span class="pl-pds">"</span></span>);
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>Paginger cache records number:<span class="pl-pds">"</span></span>,paginger.<span class="pl-c1">getCache</span>().<span class="pl-c1">count</span>());</pre></div>
+
+<hr>
+
+<h4>
+<a id="getcachecount" class="anchor" href="#getcachecount" aria-hidden="true"><span class="octicon octicon-link"></span></a>getCacheCount</h4>
+
+<p>调用格式：<code>getCacheCount();</code>
+功能描述：获取Paginger的缓存数据的数组长度。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> paginger <span class="pl-k">=</span> fromq.<span class="pl-c1">range</span>(<span class="pl-c1">100</span>).<span class="pl-c1">paging</span>(<span class="pl-c1">6</span>,<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o%15==0<span class="pl-pds">"</span></span>);
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>Paginger cache records number:<span class="pl-pds">"</span></span>,paginger.<span class="pl-c1">getCacheCount</span>());</pre></div>
+
+<hr>
+
+<h4>
+<a id="gotopage" class="anchor" href="#gotopage" aria-hidden="true"><span class="octicon octicon-link"></span></a>gotoPage</h4>
+
+<p>调用格式：<code>gotoPage(/*Number*/pageNumber);</code>
+功能描述：跳转到pageNumber，并获取PageNumber的数据。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> paginger <span class="pl-k">=</span> fromq.<span class="pl-c1">range</span>(<span class="pl-c1">100</span>).<span class="pl-c1">paging</span>(<span class="pl-c1">6</span>,<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o%3==0<span class="pl-pds">"</span></span>);
+paginger.
+    <span class="pl-c1">gotoPage</span>(<span class="pl-c1">2</span>)
+    .<span class="pl-c1">each</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){
+        <span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>record no.<span class="pl-pds">"</span></span>,paginger.<span class="pl-c1">indexOf</span>(item),<span class="pl-s"><span class="pl-pds">"</span><span class="pl-cce">\t</span>value:<span class="pl-pds">"</span></span>,item);
+    });
+</pre></div>
+
+<hr>
+
+<h4>
+<a id="first" class="anchor" href="#first" aria-hidden="true"><span class="octicon octicon-link"></span></a>first</h4>
+
+<p>调用格式：<code>first();</code>
+功能描述：跳转到第一页，并获取该页的数据。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> paginger <span class="pl-k">=</span> fromq.<span class="pl-c1">range</span>(<span class="pl-c1">100</span>).<span class="pl-c1">paging</span>(<span class="pl-c1">6</span>,<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o%3==0<span class="pl-pds">"</span></span>);
+paginger
+    .<span class="pl-c1">first</span>()
+    .<span class="pl-c1">each</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){
+        <span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>record no.<span class="pl-pds">"</span></span>,paginger.<span class="pl-c1">indexOf</span>(item),<span class="pl-s"><span class="pl-pds">"</span><span class="pl-cce">\t</span>value:<span class="pl-pds">"</span></span>,item);
+    });</pre></div>
+
+<hr>
+
+<h4>
+<a id="last" class="anchor" href="#last" aria-hidden="true"><span class="octicon octicon-link"></span></a>last</h4>
+
+<p>调用格式：<code>last();</code>
+功能描述：跳转到末页，并获取该页的数据。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> paginger <span class="pl-k">=</span> fromq.<span class="pl-c1">range</span>(<span class="pl-c1">100</span>).<span class="pl-c1">paging</span>(<span class="pl-c1">6</span>,<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o%3==0<span class="pl-pds">"</span></span>);
+paginger
+    .<span class="pl-c1">last</span>()
+    .<span class="pl-c1">each</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){
+        <span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>record no.<span class="pl-pds">"</span></span>,paginger.<span class="pl-c1">indexOf</span>(item),<span class="pl-s"><span class="pl-pds">"</span><span class="pl-cce">\t</span>value:<span class="pl-pds">"</span></span>,item);
+    });</pre></div>
+
+<hr>
+
+<h4>
+<a id="next" class="anchor" href="#next" aria-hidden="true"><span class="octicon octicon-link"></span></a>next</h4>
+
+<p>调用格式：<code>next();</code>
+功能描述：移到下一页，并获取该页的数据。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> paginger <span class="pl-k">=</span> fromq.<span class="pl-c1">range</span>(<span class="pl-c1">100</span>).<span class="pl-c1">paging</span>(<span class="pl-c1">6</span>,<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o%3==0<span class="pl-pds">"</span></span>);
+paginger
+    .<span class="pl-c1">next</span>()
+    .<span class="pl-c1">each</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){
+        <span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>record no.<span class="pl-pds">"</span></span>,paginger.<span class="pl-c1">indexOf</span>(item),<span class="pl-s"><span class="pl-pds">"</span><span class="pl-cce">\t</span>value:<span class="pl-pds">"</span></span>,item);
+    });</pre></div>
+
+<hr>
+
+<h4>
+<a id="prior" class="anchor" href="#prior" aria-hidden="true"><span class="octicon octicon-link"></span></a>prior</h4>
+
+<p>调用格式：<code>prior();</code>
+功能描述：移到上一页，并获取该页的数据。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> paginger <span class="pl-k">=</span> fromq.<span class="pl-c1">range</span>(<span class="pl-c1">100</span>).<span class="pl-c1">paging</span>(<span class="pl-c1">6</span>,<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o%3==0<span class="pl-pds">"</span></span>);
+paginger
+    .<span class="pl-c1">prior</span>()
+    .<span class="pl-c1">each</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){
+        <span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>record no.<span class="pl-pds">"</span></span>,paginger.<span class="pl-c1">indexOf</span>(item),<span class="pl-s"><span class="pl-pds">"</span><span class="pl-cce">\t</span>value:<span class="pl-pds">"</span></span>,item);
+    });</pre></div>
+
+<hr>
+
+<h4>
+<a id="current" class="anchor" href="#current" aria-hidden="true"><span class="octicon octicon-link"></span></a>current</h4>
+
+<p>调用格式：<code>current();</code>
+功能描述：获取当前页的数据。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> paginger <span class="pl-k">=</span> fromq.<span class="pl-c1">range</span>(<span class="pl-c1">100</span>).<span class="pl-c1">paging</span>(<span class="pl-c1">6</span>,<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o%3==0<span class="pl-pds">"</span></span>);
+paginger
+    .<span class="pl-c1">current</span>()
+    .<span class="pl-c1">each</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){
+        <span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>record no.<span class="pl-pds">"</span></span>,paginger.<span class="pl-c1">indexOf</span>(item),<span class="pl-s"><span class="pl-pds">"</span><span class="pl-cce">\t</span>value:<span class="pl-pds">"</span></span>,item);
+    });</pre></div>
+
+<hr>
+
+<h4>
+<a id="indexof-1" class="anchor" href="#indexof-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>indexOf</h4>
+
+<p>调用格式：<code>indexOf(/*Object*/item);</code>
+功能描述：获取item在Cache中的索引值。
+返回结果：Number</p>
+
+<ul>
+<li>若返回结果为<code>-1</code>，表示item不在Cache中。</li>
+</ul>
+
+<p>调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> paginger <span class="pl-k">=</span> fromq.<span class="pl-c1">range</span>(<span class="pl-c1">100</span>).<span class="pl-c1">paging</span>(<span class="pl-c1">6</span>,<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o%3==0<span class="pl-pds">"</span></span>);
+paginger
+    .<span class="pl-c1">last</span>()
+    .<span class="pl-c1">each</span>(<span class="pl-k">function</span>(<span class="pl-smi">item</span>){
+        <span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>record no.<span class="pl-pds">"</span></span>,paginger.<span class="pl-c1">indexOf</span>(item),<span class="pl-s"><span class="pl-pds">"</span><span class="pl-cce">\t</span>value:<span class="pl-pds">"</span></span>,item);
+    });</pre></div>
+
+<hr>
+
+<h4>
+<a id="istail" class="anchor" href="#istail" aria-hidden="true"><span class="octicon octicon-link"></span></a>isTail</h4>
+
+<p>调用格式：<code>isTail();</code>
+功能描述：判断当前页是否是末尾页。
+返回结果：true|false
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> paginger <span class="pl-k">=</span> fromq.<span class="pl-c1">range</span>(<span class="pl-c1">100</span>).<span class="pl-c1">paging</span>(<span class="pl-c1">6</span>,<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o%3==0<span class="pl-pds">"</span></span>);
+paginger.<span class="pl-c1">next</span>();
+<span class="pl-en">console</span>.
+    <span class="pl-c1">log</span>(<span class="pl-s"><span class="pl-pds">"</span>Current Page is tail:<span class="pl-pds">"</span></span>,paginger.<span class="pl-c1">isTail</span>());
+</pre></div>
+
+<hr>
+
+<h4>
+<a id="istop" class="anchor" href="#istop" aria-hidden="true"><span class="octicon octicon-link"></span></a>isTop</h4>
+
+<p>调用格式：<code>isTop();</code>
+功能描述：判断当前页是否是顶页。
+返回结果：true|false
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> paginger <span class="pl-k">=</span> fromq.<span class="pl-c1">range</span>(<span class="pl-c1">100</span>).<span class="pl-c1">paging</span>(<span class="pl-c1">6</span>,<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o%3==0<span class="pl-pds">"</span></span>);
+paginger.<span class="pl-c1">first</span>();
+<span class="pl-en">console</span>.
+    <span class="pl-c1">log</span>(<span class="pl-s"><span class="pl-pds">"</span>Current Page is top:<span class="pl-pds">"</span></span>,paginger.<span class="pl-c1">isTop</span>());
+</pre></div>
+
+<hr>
+
+<h3>
+<a id="5正则表达式操作" class="anchor" href="#5%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F%E6%93%8D%E4%BD%9C" aria-hidden="true"><span class="octicon octicon-link"></span></a>5.正则表达式操作</h3>
+
+<p>fromq可以进行正则表达式的匹配操作，主要有两个函数，fromq(RegExp)和match(str)。具体使用详细如下说明。</p>
+
+<h4>
+<a id="fromq-1" class="anchor" href="#fromq-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>fromq</h4>
+
+<p>调用格式：<code>fromq(/*RegExp*/it,/*String*/str);</code>
+功能描述：使用it对str进行正则表达式匹配，组织匹配结果为fromq对象。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>(<span class="pl-sr"><span class="pl-pds">/</span>ab<span class="pl-k">*</span><span class="pl-pds">/</span>g</span>,<span class="pl-s"><span class="pl-pds">"</span>abb switch,i like abb<span class="pl-pds">"</span></span>).
+    <span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log('value:'+o,'<span class="pl-cce">\t</span> index:'+o.index)<span class="pl-pds">"</span></span>);</pre></div>
+
+<h4>
+<a id="match" class="anchor" href="#match" aria-hidden="true"><span class="octicon octicon-link"></span></a>match</h4>
+
+<p>调用格式：<code>match(/*String*/str);</code>
+功能描述：使用fromq对象创建时的it值对str进行正则表达式匹配，组织匹配结果为fromq对象。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>(<span class="pl-sr"><span class="pl-pds">/</span>ab<span class="pl-k">*</span><span class="pl-pds">/</span>g</span>).<span class="pl-c1">match</span>(<span class="pl-s"><span class="pl-pds">"</span>abb switch,i like abb<span class="pl-pds">"</span></span>).
+    <span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log('value:'+o,'<span class="pl-cce">\t</span> index:'+o.index)<span class="pl-pds">"</span></span>);</pre></div>
+
+<hr>
+
+<h3>
+<a id="6lambda使用" class="anchor" href="#6lambda%E4%BD%BF%E7%94%A8" aria-hidden="true"><span class="octicon octicon-link"></span></a>6.Lambda使用</h3>
+
+<h4>
+<a id="fromq--fromqlambda" class="anchor" href="#fromq--fromqlambda" aria-hidden="true"><span class="octicon octicon-link"></span></a>fromq | fromq.lambda</h4>
+
+<p>调用格式：<code>fromq(/*String*/it,/*Boolean*/isClosure);</code>
+功能描述：fromq可以将符合Lambda规范的字符串编译为匿名函数。
+返回结果：Function
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-c1">fromq</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);
+fromq.<span class="pl-c1">lambda</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>);
+<span class="pl-c1">fromq</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>,<span class="pl-c1">true</span>); <span class="pl-c">//带有闭包函数体</span>
+fromq.<span class="pl-c1">lambda</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>,<span class="pl-c1">true</span>);</pre></div>
+
+<div class="highlight highlight-javascript"><pre>
+<span class="pl-c1">fromq</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>).<span class="pl-c1">toString</span>();
+<span class="pl-c">/*</span>
+<span class="pl-c">function anonymous(o) {</span>
+<span class="pl-c">'use strict';</span>
+<span class="pl-c">return console.log(o);</span>
+<span class="pl-c">}</span>
+<span class="pl-c">*/</span>
+
+<span class="pl-c1">fromq</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;console.log(o)<span class="pl-pds">"</span></span>,<span class="pl-c1">true</span>).<span class="pl-c1">toString</span>();
+<span class="pl-c">/*</span>
+<span class="pl-c">function anonymous(o) {</span>
+<span class="pl-c">'use strict';</span>
+<span class="pl-c">return  (function(o){console.log(o)}).apply(this,arguments);</span>
+<span class="pl-c">}</span>
+<span class="pl-c">*/</span></pre></div>
+
+<hr>
+
+<h3>
+<a id="7其他静态功能utils" class="anchor" href="#7%E5%85%B6%E4%BB%96%E9%9D%99%E6%80%81%E5%8A%9F%E8%83%BDutils" aria-hidden="true"><span class="octicon octicon-link"></span></a>7.其他静态功能(utils)</h3>
+
+<p>其他静态功能是指fromq.utils包中的静态方法，可以通过fromq.utils直接引用。</p>
+
+<h4>
+<a id="random-1" class="anchor" href="#random-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>random</h4>
+
+<p>调用格式：<code>random(/*Number*/minValue,/*Number*/maxValue,/*Number*/count);</code>
+功能描述：随机产生minValue-maxValue范围内的count数量的数组，并返回fromq。</p>
+
+<ul>
+<li>maxValue为null时，产生0-minValue之间的数值;</li>
+<li>count缺省时，默认为1;</li>
+</ul>
+
+<p>返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> s <span class="pl-k">=</span> fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">random</span>(<span class="pl-c1">100</span>,<span class="pl-c1">null</span>,<span class="pl-c1">5</span>).<span class="pl-c1">toString</span>(<span class="pl-s"><span class="pl-pds">"</span>,<span class="pl-pds">"</span></span>);
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(s);
+<span class="pl-c">/*out:</span>
+<span class="pl-c">43,64,23,32,86</span>
+<span class="pl-c">*/</span></pre></div>
+
+<h4>
+<a id="range" class="anchor" href="#range" aria-hidden="true"><span class="octicon octicon-link"></span></a>range</h4>
+
+<p>调用格式：<code>range(/*Number*/start, /*Number*/end, /*Number*/step);</code>
+功能描述：按setp步长生成从start到end的数组元素并返回fromq。</p>
+
+<ul>
+<li>若仅有start，则生成0-start个数组元素</li>
+<li>若仅缺step,则以1为步长</li>
+</ul>
+
+<p>返回结果：fromq
+功能已经有所修缮，详见<a href="http://www.bonashen.com/post/develop/ria-develop/2015-04-25-xin-zeng-fromq.equalgong-neng-xiu-shan-liao-rangegong-neng">【新增fromq.equal,into功能，修缮了range功能】</a></p>
+
+<p>调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre>fromq
+        .<span class="pl-c1">utils</span>.<span class="pl-c1">range</span>(<span class="pl-c1">10</span>)
+        .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o*2<span class="pl-pds">"</span></span>)
+        .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">'</span>o=&gt;console.log(o)<span class="pl-pds">'</span></span>);
+fromq
+        .<span class="pl-c1">utils</span>.<span class="pl-c1">range</span>(<span class="pl-c1">5</span>,<span class="pl-c1">10</span>)
+        .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o*2<span class="pl-pds">"</span></span>)
+        .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">'</span>o=&gt;console.log(o)<span class="pl-pds">'</span></span>);
+fromq
+        .<span class="pl-c1">utils</span>.<span class="pl-c1">range</span>(<span class="pl-c1">1</span>,<span class="pl-c1">10</span>,<span class="pl-c1">2</span>)
+        .<span class="pl-c1">select</span>(<span class="pl-s"><span class="pl-pds">"</span>o=&gt;o*2<span class="pl-pds">"</span></span>)
+        .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">'</span>o=&gt;console.log(o)<span class="pl-pds">'</span></span>);</pre></div>
+
+<h4>
+<a id="repeat" class="anchor" href="#repeat" aria-hidden="true"><span class="octicon octicon-link"></span></a>repeat</h4>
+
+<p>调用格式：<code>repeat(/*String*/it, /*Number*/count);</code>
+功能描述：重复生成count数量的it数组元素并返回fromq。
+返回结果：fromq
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre>fromq
+        .<span class="pl-c1">utils</span>.<span class="pl-c1">repeat</span>(<span class="pl-s"><span class="pl-pds">"</span>a<span class="pl-pds">"</span></span>,<span class="pl-c1">4</span>)
+        .<span class="pl-c1">each</span>(<span class="pl-s"><span class="pl-pds">'</span>o=&gt;console.log(o)<span class="pl-pds">'</span></span>);
+<span class="pl-c">/*out:</span>
+<span class="pl-c">    aaaa</span>
+<span class="pl-c">*/</span></pre></div>
+
+<h4>
+<a id="trim" class="anchor" href="#trim" aria-hidden="true"><span class="octicon octicon-link"></span></a>trim</h4>
+
+<p>调用格式：<code>trim(/*String*/it);</code>
+功能描述：删除it字符串的前尾空白字符并返回。
+返回结果：String
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> src <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span> a <span class="pl-pds">"</span></span>;
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(src.<span class="pl-c1">length</span>);<span class="pl-c">//3</span>
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">trim</span>(src).<span class="pl-c1">length</span>);<span class="pl-c">//1</span></pre></div>
+
+<h4>
+<a id="initialtouppercase" class="anchor" href="#initialtouppercase" aria-hidden="true"><span class="octicon octicon-link"></span></a>initialToUpperCase</h4>
+
+<p>调用格式：<code>initialToUpperCase(/*String*/it);</code>
+功能描述：将字符串中首个单词的首字母转为大写字母。
+返回结果：String
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> src <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span> hello world <span class="pl-pds">"</span></span>;
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>'<span class="pl-pds">"</span></span>,src,<span class="pl-s"><span class="pl-pds">"</span>',  length:<span class="pl-pds">"</span></span>,src.<span class="pl-c1">length</span>);
+<span class="pl-k">var</span> dsrc <span class="pl-k">=</span> fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">initialToUpperCase</span>(src);
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>'<span class="pl-pds">"</span></span>,dsrc,<span class="pl-s"><span class="pl-pds">"</span>',  length:<span class="pl-pds">"</span></span>,dsrc.<span class="pl-c1">length</span>);
+<span class="pl-c">/*out:</span>
+<span class="pl-c">' hello world ', length:13</span>
+<span class="pl-c">' Hello world ', length:13</span>
+<span class="pl-c">*/</span></pre></div>
+
+<h4>
+<a id="initialstouppercase" class="anchor" href="#initialstouppercase" aria-hidden="true"><span class="octicon octicon-link"></span></a>initialsToUpperCase</h4>
+
+<p>调用格式：<code>initialsToUpperCase(/*String*/it);</code>
+功能描述：将字符串中每个单词的首字母转为大写字母。
+返回结果：String
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> src <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span> hello world <span class="pl-pds">"</span></span>;
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>'<span class="pl-pds">"</span></span>,src,<span class="pl-s"><span class="pl-pds">"</span>',  length:<span class="pl-pds">"</span></span>,src.<span class="pl-c1">length</span>);
+<span class="pl-k">var</span> dsrc <span class="pl-k">=</span> fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">initialsToUpperCase</span>(src);
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>'<span class="pl-pds">"</span></span>,dsrc,<span class="pl-s"><span class="pl-pds">"</span>',  length:<span class="pl-pds">"</span></span>,dsrc.<span class="pl-c1">length</span>);
+<span class="pl-c">/*out:</span>
+<span class="pl-c">' hello world ', length:13</span>
+<span class="pl-c">' Hello World ', length:13</span>
+<span class="pl-c">*/</span></pre></div>
+
+<h4>
+<a id="isarray" class="anchor" href="#isarray" aria-hidden="true"><span class="octicon octicon-link"></span></a>isArray</h4>
+
+<p>调用格式：<code>isArray(/*array*/it);</code>
+功能描述：判断it是否是数组。
+返回结果：true|false
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-en">console</span><span class="pl-c1">.log</span>(fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">isArray</span>([]));  <span class="pl-c">//true</span></pre></div>
+
+<h4>
+<a id="isfunction" class="anchor" href="#isfunction" aria-hidden="true"><span class="octicon octicon-link"></span></a>isFunction</h4>
+
+<p>调用格式：<code>isFunction(/*Function*/it);</code>
+功能描述：判断it是否是函数。
+返回结果：true|false
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-en">console</span><span class="pl-c1">.log</span>(fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">isFunction</span>(<span class="pl-k">function</span>(){}));  <span class="pl-c">//true</span></pre></div>
+
+<h4>
+<a id="isstring" class="anchor" href="#isstring" aria-hidden="true"><span class="octicon octicon-link"></span></a>isString</h4>
+
+<p>调用格式：<code>isString(/*String*/it);</code>
+功能描述：判断it是否是字符串。
+返回结果：true|false
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-en">console</span><span class="pl-c1">.log</span>(fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">isString</span>(<span class="pl-s"><span class="pl-pds">"</span> ab <span class="pl-pds">"</span></span>));  <span class="pl-c">//true</span>
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">isString</span>(<span class="pl-s"><span class="pl-pds">"</span><span class="pl-pds">"</span></span>));  <span class="pl-c">//true</span></pre></div>
+
+<h4>
+<a id="isnumber" class="anchor" href="#isnumber" aria-hidden="true"><span class="octicon octicon-link"></span></a>isNumber</h4>
+
+<p>调用格式：<code>isNumber(/*String|Number*/it);</code>
+功能描述：判断it是否是整数。
+返回结果：true|false
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-en">console</span><span class="pl-c1">.log</span>(fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">isNumber</span>(<span class="pl-s"><span class="pl-pds">"</span>123<span class="pl-pds">"</span></span>));  <span class="pl-c">//true</span>
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">isNumber</span>(<span class="pl-c1">123</span>));  <span class="pl-c">//true</span>
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">isNumber</span>(<span class="pl-s"><span class="pl-pds">"</span>12.3<span class="pl-pds">"</span></span>));  <span class="pl-c">//false</span>
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">isNumber</span>(<span class="pl-c1">12.3</span>));  <span class="pl-c">//false</span></pre></div>
+
+<h4>
+<a id="isfloat" class="anchor" href="#isfloat" aria-hidden="true"><span class="octicon octicon-link"></span></a>isFloat</h4>
+
+<p>调用格式：<code>isFloat(/*String|Number*/it);</code>
+功能描述：判断it是否是实数。
+返回结果：true|false
+调用样例:</p>
+
+<div class="highlight highlight-javascript"><pre><span class="pl-en">console</span><span class="pl-c1">.log</span>(fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">isFloat</span>(<span class="pl-s"><span class="pl-pds">"</span>123<span class="pl-pds">"</span></span>));  <span class="pl-c">//true</span>
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">isFloat</span>(<span class="pl-c1">12.3</span>));  <span class="pl-c">//true</span>
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">isFloat</span>(<span class="pl-s"><span class="pl-pds">"</span>-12.3<span class="pl-pds">"</span></span>));  <span class="pl-c">//true</span>
+<span class="pl-en">console</span><span class="pl-c1">.log</span>(fromq.<span class="pl-c1">utils</span>.<span class="pl-c1">isFloat</span>(<span class="pl-s"><span class="pl-pds">"</span>+12.3<span class="pl-pds">"</span></span>));  <span class="pl-c">//true</span></pre></div>
+
+<hr>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/bonashen/fromq">Fromq</a> is maintained by <a href="https://github.com/bonashen">bonashen</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
+  </body>
+</html>
